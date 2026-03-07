@@ -1,9 +1,10 @@
-export type Page = 'A' | 'B' | 'C' | 'D';
+export type Page = 'A' | 'B' | 'C' | 'D' | 'E';
 export type AgentRole = 'manager' | 'worker1' | 'worker2';
 export type MessageRole = 'user' | 'agent' | 'system';
 export type FileType = 'Conversation' | 'Document' | 'Report';
 export type AIProvider = 'OpenAI' | 'Anthropic' | 'Google';
 export type TeamsNodeType = 'general_manager' | 'senior_manager' | 'worker';
+export type PromptVisibility = 'public' | 'private';
 
 export interface Message {
   id: string;
@@ -67,6 +68,19 @@ export interface TeamFolderItem {
   createdAt?: string;
   fileType?: FileType;
   linkedFileId?: string;
+}
+
+export interface PromptItem {
+  id: string;
+  visibility: PromptVisibility;
+  collection: string;
+  code: string;
+  title: string;
+  description: string;
+  tags: string[];
+  promptText: string;
+  usageCount: number;
+  updatedAt: string;
 }
 
 export interface AppState {

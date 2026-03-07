@@ -5,6 +5,7 @@ import { PageA } from './pages/PageA';
 import { PageB } from './pages/PageB';
 import { PageC } from './pages/PageC';
 import { PageD } from './pages/PageD';
+import { PageE } from './pages/PageE';
 
 function AppInner() {
   const { state } = useApp();
@@ -17,6 +18,7 @@ function AppInner() {
         {state.currentPage === 'B' && <PageB />}
         {state.currentPage === 'C' && <PageC />}
         {state.currentPage === 'D' && <PageD />}
+        {state.currentPage === 'E' && <PageE />}
       </main>
       <BottomNav />
     </div>

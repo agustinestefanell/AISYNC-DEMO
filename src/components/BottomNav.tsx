@@ -34,19 +34,11 @@ export function BottomNav() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
-  const [showPromptsLibrary, setShowPromptsLibrary] = useState(false);
   const [toast, setToast] = useState('');
   const [workerName, setWorkerName] = useState('');
   const [provider, setProvider] = useState<AIProvider>('OpenAI');
   const [promptFileName, setPromptFileName] = useState('');
   const [promptContent, setPromptContent] = useState('');
-  const prompts = [
-    'Summarize the selected Manager messages as a session note.',
-    'Turn the latest worker answer into a report-ready paragraph.',
-    'Extract all execution decisions from the current chat.',
-    'Create a handoff packet for the next worker without adding assumptions.',
-    'Rewrite the selected content for a non-technical stakeholder.',
-  ];
 
   const closeMenus = () => {
     setShowSettings(false);
@@ -154,9 +146,10 @@ export function BottomNav() {
 
           <NavButton
             label="Prompts Library"
+            active={state.currentPage === 'E'}
             onClick={() => {
+              dispatch({ type: 'SET_PAGE', page: 'E' });
               closeMenus();
-              setShowPromptsLibrary(true);
             }}
           />
 
@@ -305,25 +298,6 @@ export function BottomNav() {
                 Save
               </button>
             </div>
-          </div>
-        </Modal>
-      )}
-
-      {showPromptsLibrary && (
-        <Modal
-          title="Prompts Library"
-          onClose={() => setShowPromptsLibrary(false)}
-          width="max-w-2xl"
-        >
-          <div className="grid gap-2">
-            {prompts.map((prompt) => (
-              <div
-                key={prompt}
-                className="ui-surface-subtle px-3 py-3 text-xs text-neutral-700"
-              >
-                {prompt}
-              </div>
-            ))}
           </div>
         </Modal>
       )}

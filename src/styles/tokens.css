@@ -214,6 +214,14 @@ input[type="file"].ui-input {
   color: var(--color-text-secondary);
 }
 
+.ui-title {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--color-text-primary);
+}
+
 .ui-pill {
   display: inline-flex;
   align-items: center;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AgentPanel } from '../components/AgentPanel';
 import { FileViewer } from '../components/FileViewer';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
@@ -636,9 +637,19 @@ export function PageD() {
 
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-3 py-3">
-      <div className="app-frame mx-auto h-full min-h-0 w-full max-w-[1600px] overflow-hidden">
-        <div className="scrollbar-thin h-full overflow-y-auto">
-          <section className="flex min-h-full flex-col gap-6 bg-[var(--color-surface-soft)] px-6 py-6">
+      <div className="app-frame mx-auto flex h-full min-h-0 w-full max-w-[1600px] overflow-hidden">
+        <AgentPanel agent="manager" style={{ width: 360, flexShrink: 0 }} />
+
+        <div className="ui-divider-rail flex w-4 shrink-0 items-start justify-center pt-4 text-[10px]">
+          <div className="grid gap-1 text-center">
+            <span>{'<'}</span>
+            <span>{'>'}</span>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-soft)]">
+          <div className="scrollbar-thin flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+            <section className="flex min-h-full flex-col gap-6 px-6 py-6">
             <div className="flex items-start justify-between gap-6">
               <div>
                 <h1 className="ui-title">
@@ -764,28 +775,29 @@ export function PageD() {
                 })}
               </div>
             </div>
-          </section>
+            </section>
 
-          <section className="border-t border-neutral-200 bg-white px-6 py-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-neutral-900">Project Folders (Full)</h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                The full tree reveals the depth of each team&apos;s operational outputs using the same folder data shown in the mini strip above.
-              </p>
-            </div>
+            <section className="border-t border-neutral-200 bg-white px-6 py-6">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold text-neutral-900">Project Folders (Full)</h2>
+                <p className="mt-1 text-sm text-neutral-600">
+                  The full tree reveals the depth of each team&apos;s operational outputs using the same folder data shown in the mini strip above.
+                </p>
+              </div>
 
-            <div className="grid gap-5 xl:grid-cols-3">
-              {topLevelUnits.map((unit) => (
-                <div key={unit.teamId} className="ui-surface-subtle p-4">
-                  <div className="mb-3 text-sm font-semibold text-neutral-900">{unit.label}</div>
-                  <TeamTree
-                    items={teamsState.foldersByTeam[unit.teamId] ?? []}
-                    onOpenFile={(item) => openFolderFile(item, unit.teamId, unit.label)}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
+              <div className="grid gap-5 xl:grid-cols-3">
+                {topLevelUnits.map((unit) => (
+                  <div key={unit.teamId} className="ui-surface-subtle p-4">
+                    <div className="mb-3 text-sm font-semibold text-neutral-900">{unit.label}</div>
+                    <TeamTree
+                      items={teamsState.foldersByTeam[unit.teamId] ?? []}
+                      onOpenFile={(item) => openFolderFile(item, unit.teamId, unit.label)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
         </div>
       </div>
 
