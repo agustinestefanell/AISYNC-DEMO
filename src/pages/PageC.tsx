@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { AgentPanel } from '../components/AgentPanel';
+import { DividerRail } from '../components/DividerRail';
 import { FileViewer } from '../components/FileViewer';
 import { Toast } from '../components/Toast';
 import { useApp } from '../context';
+import { SECONDARY_MANAGER_PANEL_WIDTH } from '../layout';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
@@ -93,14 +95,12 @@ export function PageC() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-3 py-3">
       <div className="app-frame mx-auto flex h-full min-h-0 w-full max-w-[1600px] overflow-hidden">
-        <AgentPanel agent="manager" style={{ width: 360, flexShrink: 0 }} />
+        <AgentPanel
+          agent="manager"
+          style={{ width: SECONDARY_MANAGER_PANEL_WIDTH, flexShrink: 0 }}
+        />
 
-        <div className="ui-divider-rail flex w-4 shrink-0 items-start justify-center pt-4 text-[10px]">
-          <div className="grid gap-1 text-center">
-            <span>{'<'}</span>
-            <span>{'>'}</span>
-          </div>
-        </div>
+        <DividerRail />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-soft)]">
           <div className="px-3 pb-2 pt-3">

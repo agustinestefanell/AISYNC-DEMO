@@ -2,9 +2,20 @@ import { useApp } from '../context';
 
 export function TopBar() {
   const { state } = useApp();
+  const ribbonColor =
+    state.currentPage === 'F' && state.secondaryWorkspace
+      ? state.secondaryWorkspace.color
+      : '#111111';
+  const centerLabel =
+    state.currentPage === 'F' && state.secondaryWorkspace
+      ? `Secondary Workspace | ${state.secondaryWorkspace.label}`
+      : state.projectName;
 
   return (
-    <header className="ui-topbar h-12 shrink-0 px-4 text-white">
+    <header
+      className="ui-topbar h-12 shrink-0 px-4 text-white"
+      style={{ backgroundColor: ribbonColor }}
+    >
       <div className="mx-auto grid h-full max-w-[1600px] grid-cols-[auto_minmax(0,1fr)_minmax(160px,auto)] items-center gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="ui-topbar-badge flex h-7 w-7 shrink-0 items-center justify-center text-[11px] font-semibold tracking-[0.14em]">
@@ -14,9 +25,11 @@ export function TopBar() {
         </div>
 
         <div className="min-w-0 text-center text-sm text-white/84">
-          <span className="mr-1">Project:</span>
+          <span className="mr-1">
+            {state.currentPage === 'F' && state.secondaryWorkspace ? 'Workspace:' : 'Project:'}
+          </span>
           <span className="inline-block max-w-full truncate align-bottom font-medium text-white">
-            {state.projectName}
+            {centerLabel}
           </span>
         </div>
 

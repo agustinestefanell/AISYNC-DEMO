@@ -37,9 +37,11 @@ export function FileViewer({ file, projectName, onClose }: FileViewerProps) {
         </div>
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
-            Agent
+            Source
           </span>
-          <span className="font-medium text-neutral-900">{getAgentLabel(file.agent)}</span>
+          <span className="font-medium text-neutral-900">
+            {file.sourceLabel ?? getAgentLabel(file.agent)}
+          </span>
         </div>
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">

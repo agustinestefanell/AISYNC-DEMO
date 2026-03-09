@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useApp } from '../context';
 import type { AgentRole, FileType, Message } from '../types';
+import { ContextUploadModal, type ContextUploadItem } from './ContextUploadModal';
 import { Modal } from './Modal';
+import { SaveBackupModal } from './SaveBackupModal';
 import { Toast } from './Toast';
 
 const MODEL_LABELS: Record<AgentRole, string> = {
@@ -57,22 +59,7 @@ function getAgentLabel(agent: AgentRole) {
   return 'Worker 2';
 }
 
-function buildSaveContent(messages: Message[], selectedIds: string[]) {
-  if (selectedIds.length > 0) {
-    return messages
-      .filter((message) => selectedIds.includes(message.id))
-      .map((message) => `${message.senderLabel}: ${message.content}`)
-      .join('\n\n');
-  }
-
-  const latestAssistant = [...messages]
-    .reverse()
-    .find((message) => message.role === 'agent' || message.role === 'system');
-
-  if (latestAssistant) {
-    return `${latestAssistant.senderLabel}: ${latestAssistant.content}`;
-  }
-
+function buildSaveContent(messages: Message[]) {
   return messages
     .map((message) => `${message.senderLabel}: ${message.content}`)
     .join('\n\n');
@@ -97,7 +84,6 @@ export interface AgentPanelProps {
 
 export function AgentPanel({
   agent,
-  showSaveAction = false,
   showRefreshAction = true,
   editableRole = false,
   className,
@@ -112,6 +98,9 @@ export function AgentPanel({
 
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showSaveSelection, setShowSaveSelection] = useState(false);
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [contextItems, setContextItems] = useState<ContextUploadItem[]>([]);
   const [toast, setToast] = useState('');
   const [roleInput, setRoleInput] = useState(
     agent === 'manager' ? '' : state.workerRoles[agent],
@@ -129,6 +118,10 @@ export function AgentPanel({
         (option) => option !== agent,
       ),
     [agent],
+  );
+  const selectedMessages = useMemo(
+    () => messages.filter((message) => selectedIds.includes(message.id)),
+    [messages, selectedIds],
   );
 
   useEffect(() => {
@@ -152,6 +145,12 @@ export function AgentPanel({
       setRoleInput(agent === 'manager' ? '' : state.workerRoles[agent]);
     }
   }, [agent, editableRole, state.workerRoles]);
+
+  useEffect(() => {
+    if (showSaveModal && selectedMessages.length === 0) {
+      setShowSaveModal(false);
+    }
+  }, [selectedMessages.length, showSaveModal]);
 
   const headerLabel = useMemo(() => {
     if (agent === 'manager') {
@@ -227,10 +226,14 @@ export function AgentPanel({
   };
 
   const handleSave = () => {
-    const content = buildSaveContent(messages, selectedIds);
+    if (selectedMessages.length === 0) {
+      setToast('Select the messages you want to back up first.');
+      return;
+    }
+
     saveFile({
       agent,
-      content,
+      content: buildSaveContent(selectedMessages),
       title: fileTitle.trim() || `Session_${agent}_${new Date().toISOString().slice(0, 10)}`,
       type: fileType,
       projectId,
@@ -238,7 +241,19 @@ export function AgentPanel({
     });
     dispatch({ type: 'CLEAR_SELECTION', agent });
     setShowSaveModal(false);
+    setShowSaveSelection(false);
     setToast('Saved to Documentation Mode.');
+  };
+
+  const openSaveBackup = () => {
+    setShowSaveSelection(true);
+
+    if (selectedMessages.length === 0) {
+      setToast('Manual backup requires selecting messages first.');
+      return;
+    }
+
+    setShowSaveModal(true);
   };
 
   const openPromptsLibrary = () => {
@@ -375,7 +390,9 @@ export function AgentPanel({
                         <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
                           {message.content.split('\n')[0]}
                         </div>
-                        <div className="whitespace-pre-wrap">{message.content.split('\n').slice(2).join('\n')}</div>
+                        <div className="whitespace-pre-wrap">
+                          {message.content.split('\n').slice(2).join('\n')}
+                        </div>
                       </>
                     ) : (
                       <div className="whitespace-pre-wrap">{message.content}</div>
@@ -461,17 +478,51 @@ export function AgentPanel({
           </button>
         </div>
 
-        {(showSaveAction || selectedIds.length > 0) && (
-          <div className="flex items-center gap-3">
-            {showSaveAction && (
-              <button
-                className="mt-1 text-[11px] font-medium text-neutral-700 underline-offset-2 hover:underline"
-                onClick={() => setShowSaveModal(true)}
-              >
-                Save as file
-              </button>
+        {(showSaveSelection || selectedIds.length > 0 || contextItems.length > 0) && (
+          <div className="mt-2 grid gap-2">
+            {showSaveSelection && (
+              <div className="ui-surface-subtle flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[11px] text-neutral-700">
+                <div>
+                  Manual backup selection required. Choose the exact messages to save before
+                  confirming the backup.
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="ui-pill border-transparent bg-white text-neutral-700">
+                    {selectedIds.length} selected
+                  </span>
+                  <button
+                    className="ui-button min-h-7 px-3 text-[11px] text-neutral-700 disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => setShowSaveModal(true)}
+                    disabled={selectedIds.length === 0}
+                  >
+                    Save Selected
+                  </button>
+                  <button
+                    className="ui-button min-h-7 px-3 text-[11px] text-neutral-700"
+                    onClick={() => {
+                      dispatch({ type: 'CLEAR_SELECTION', agent });
+                      setShowSaveSelection(false);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
             )}
-            {selectedIds.length > 0 && (
+
+            {contextItems.length > 0 && (
+              <div className="ui-surface-subtle px-3 py-2 text-[11px] text-neutral-700">
+                <div className="font-medium text-neutral-800">
+                  Context ready: {contextItems.length} item{contextItems.length === 1 ? '' : 's'}
+                </div>
+                <div className="mt-1 truncate text-neutral-500">
+                  {contextItems.slice(0, 2).map((item) => item.label).join(' | ')}
+                  {contextItems.length > 2 ? ` | +${contextItems.length - 2} more` : ''}
+                </div>
+              </div>
+            )}
+
+            {selectedIds.length > 0 && !showSaveSelection && (
               <button
                 className="mt-1 text-[11px] text-neutral-500 underline-offset-2 hover:underline"
                 onClick={() => dispatch({ type: 'CLEAR_SELECTION', agent })}
@@ -485,12 +536,28 @@ export function AgentPanel({
 
       {showRefreshAction && (
         <div className={`shrink-0 px-3 pb-3 pt-1 ${isManager ? 'ui-manager-section' : 'ui-worker-section'}`}>
-          <button
-            className="text-[11px] font-semibold tracking-[0.12em] text-neutral-600 transition-colors hover:text-black"
-            onClick={() => setShowRefreshConfirm(true)}
-          >
-            REFRESH THIS SESSION
-          </button>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              className="ui-button px-3 text-xs text-neutral-700"
+              onClick={() => setShowRefreshConfirm(true)}
+            >
+              Refresh Session
+            </button>
+            <button
+              className={`ui-button px-3 text-xs ${
+                showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
+              }`}
+              onClick={openSaveBackup}
+            >
+              Save / Backup
+            </button>
+            <button
+              className="ui-button px-3 text-xs text-neutral-700"
+              onClick={() => setShowContextModal(true)}
+            >
+              Upload Context
+            </button>
+          </div>
         </div>
       )}
 
@@ -510,7 +577,9 @@ export function AgentPanel({
               className="ui-button text-neutral-700"
               onClick={() => {
                 dispatch({ type: 'RESET_CHAT', agent });
+                dispatch({ type: 'CLEAR_SELECTION', agent });
                 setShowRefreshConfirm(false);
+                setShowSaveSelection(false);
                 setToast('Seed session restored.');
               }}
             >
@@ -520,7 +589,9 @@ export function AgentPanel({
               className="ui-button ui-button-primary text-white"
               onClick={() => {
                 dispatch({ type: 'CLEAR_CHAT', agent });
+                dispatch({ type: 'CLEAR_SELECTION', agent });
                 setShowRefreshConfirm(false);
+                setShowSaveSelection(false);
                 setToast('Session cleared.');
               }}
             >
@@ -530,73 +601,30 @@ export function AgentPanel({
         </Modal>
       )}
 
-      {showSaveModal && (
-        <Modal title="Save as file" onClose={() => setShowSaveModal(false)}>
-          <div className="grid gap-3">
-            <label className="grid gap-1">
-              <span className="ui-label">File name</span>
-              <input
-                className="ui-input text-xs"
-                value={fileTitle}
-                onChange={(event) => setFileTitle(event.target.value)}
-              />
-            </label>
+      <SaveBackupModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        selectedMessages={selectedMessages}
+        fileTitle={fileTitle}
+        onFileTitleChange={setFileTitle}
+        fileType={fileType}
+        onFileTypeChange={(value) => setFileType(value as FileType)}
+        projectId={projectId}
+        onProjectIdChange={setProjectId}
+        eventDate={eventDate}
+        onEventDateChange={setEventDate}
+        projects={state.projects}
+        onSave={handleSave}
+      />
 
-            <label className="grid gap-1">
-              <span className="ui-label">Type</span>
-              <select
-                className="ui-input text-xs"
-                value={fileType}
-                onChange={(event) => setFileType(event.target.value as FileType)}
-              >
-                <option value="Conversation">Conversation</option>
-                <option value="Document">Document</option>
-                <option value="Report">Report</option>
-              </select>
-            </label>
-
-            <label className="grid gap-1">
-              <span className="ui-label">Project</span>
-              <select
-                className="ui-input text-xs"
-                value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
-              >
-                {state.projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-1">
-              <span className="ui-label">Calendar date</span>
-              <input
-                className="ui-input text-xs"
-                type="date"
-                value={eventDate}
-                onChange={(event) => setEventDate(event.target.value)}
-              />
-            </label>
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                className="ui-button text-neutral-700"
-                onClick={() => setShowSaveModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="ui-button ui-button-primary text-white"
-                onClick={handleSave}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <ContextUploadModal
+        open={showContextModal}
+        onClose={() => setShowContextModal(false)}
+        onSelect={(items) => {
+          setContextItems(items);
+          setToast(`Context loaded from ${items.length} selected item(s).`);
+        }}
+      />
 
       {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>

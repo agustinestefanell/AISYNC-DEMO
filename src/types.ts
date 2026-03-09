@@ -1,10 +1,16 @@
-export type Page = 'A' | 'B' | 'C' | 'D' | 'E';
+export type Page = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 export type AgentRole = 'manager' | 'worker1' | 'worker2';
 export type MessageRole = 'user' | 'agent' | 'system';
 export type FileType = 'Conversation' | 'Document' | 'Report';
 export type AIProvider = 'OpenAI' | 'Anthropic' | 'Google';
 export type TeamsNodeType = 'general_manager' | 'senior_manager' | 'worker';
 export type PromptVisibility = 'public' | 'private';
+
+export interface SecondaryWorkspaceTarget {
+  teamId: string;
+  label: string;
+  color: string;
+}
 
 export interface Message {
   id: string;
@@ -25,6 +31,7 @@ export interface SavedFile {
   id: string;
   projectId: string;
   agent: AgentRole;
+  sourceLabel?: string;
   title: string;
   type: FileType;
   content: string;
@@ -35,6 +42,7 @@ export interface CalendarEvent {
   id: string;
   projectId: string;
   agent: AgentRole;
+  sourceLabel?: string;
   fileId: string;
   title: string;
   date: string;
@@ -99,4 +107,5 @@ export interface AppState {
   };
   workerConfigs: WorkerConfig[];
   workspaceFocusAgent: AgentRole | null;
+  secondaryWorkspace: SecondaryWorkspaceTarget | null;
 }

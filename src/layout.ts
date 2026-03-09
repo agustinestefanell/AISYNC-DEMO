@@ -1,0 +1,1 @@
+export const SECONDARY_MANAGER_PANEL_WIDTH = 432;

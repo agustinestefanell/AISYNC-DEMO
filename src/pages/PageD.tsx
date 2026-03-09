@@ -1,299 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AgentPanel } from '../components/AgentPanel';
+import { DividerRail } from '../components/DividerRail';
 import { FileViewer } from '../components/FileViewer';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
 import { useApp } from '../context';
-import type {
-  AIProvider,
-  AgentRole,
-  FileType,
-  SavedFile,
-  TeamFolderItem,
-  TeamsGraphNode,
-} from '../types';
+import {
+  PROVIDERS,
+  buildFolderSeed,
+  countArtifacts,
+  createWorkerLabel,
+  getInitialTeamsMapState,
+  getProviderDisplayName,
+  getRoleLabel,
+  getSecondaryWorkspaceTarget,
+  getTeamTheme,
+  getTopLevelUnits,
+  getWorkersByTeam,
+  getWorkspaceAgentForTeam,
+  saveTeamsMapState,
+  type TeamsMapState,
+} from '../data/teams';
+import type { AIProvider, FileType, SavedFile, TeamFolderItem, TeamsGraphNode } from '../types';
+import { SECONDARY_MANAGER_PANEL_WIDTH } from '../layout';
 
-const TEAMS_STORAGE_KEY = 'aisync_teams_map_v1';
-const PROVIDERS: AIProvider[] = ['OpenAI', 'Anthropic', 'Google'];
-const CHAT_AGENT_ORDER: AgentRole[] = ['worker1', 'worker2', 'manager'];
-
-function getProviderDisplayName(provider: AIProvider) {
-  return provider === 'Google' ? 'Gemini' : provider;
-}
-
-interface TeamsMapState {
-  teamsGraph: TeamsGraphNode[];
-  foldersByTeam: Record<string, TeamFolderItem[]>;
-}
-
-function createFile(
-  id: string,
-  name: string,
-  fileType: FileType,
-  content: string,
-  createdAt: string,
-): TeamFolderItem {
-  return {
-    id,
-    name,
-    type: 'file',
-    fileType,
-    content,
-    createdAt,
-  };
-}
-
-function createFolder(
-  id: string,
-  name: string,
-  children: TeamFolderItem[],
-): TeamFolderItem {
-  return {
-    id,
-    name,
-    type: 'folder',
-    children,
-  };
-}
-
-function getTeamCode(teamId: string) {
-  if (teamId === 'team_legal') return 'LC';
-  if (teamId === 'team_marketing') return 'MK';
-  if (teamId === 'team_clients') return 'CL';
-  if (teamId.startsWith('team_dynamic_')) {
-    return `T${teamId.split('_').pop() ?? '00'}`;
-  }
-  return 'TM';
-}
-
-function createWorkerLabel(teamId: string, index: number) {
-  return `W-${getTeamCode(teamId)}${String(index).padStart(2, '0')}`;
-}
-
-function buildFolderSeed(teamId: string, teamLabel: string): TeamFolderItem[] {
-  const code = getTeamCode(teamId);
-  const normalized = teamLabel.replace(/[^a-zA-Z0-9]+/g, '-');
-
-  return [
-    createFolder(`${teamId}_conversations`, 'Conversations', [
-      createFile(
-        `${teamId}_conv_1`,
-        `2026-03-04_${normalized}_Session01.txt`,
-        'Conversation',
-        `${teamLabel} session 01.\n\nRouting summary, active tasks, and worker handoff notes.`,
-        '2026-03-04T09:15:00.000Z',
-      ),
-      createFile(
-        `${teamId}_conv_2`,
-        `2026-03-05_${normalized}_Session02.txt`,
-        'Conversation',
-        `${teamLabel} session 02.\n\nFollow-up actions, open questions, and context inheritance details.`,
-        '2026-03-05T11:10:00.000Z',
-      ),
-    ]),
-    createFolder(`${teamId}_documents`, 'Documents', [
-      createFolder(`${teamId}_documents_drafts`, 'Drafts', [
-        createFile(
-          `${teamId}_doc_1`,
-          `${code}_Strategy-Draft.docx`,
-          'Document',
-          `${teamLabel} draft.\n\nOutline, workstreams, and interim deliverables for the current sprint.`,
-          '2026-03-05T13:00:00.000Z',
-        ),
-      ]),
-      createFolder(`${teamId}_documents_specs`, 'Specs', [
-        createFile(
-          `${teamId}_doc_2`,
-          `${code}_Technical-Specs.docx`,
-          'Document',
-          `${teamLabel} technical specs.\n\nDependencies, sequencing, and review criteria.`,
-          '2026-03-06T14:20:00.000Z',
-        ),
-      ]),
-    ]),
-    createFolder(`${teamId}_reports`, 'Reports', [
-      createFile(
-        `${teamId}_report_1`,
-        `2026-03-06_Daily-Summary.md`,
-        'Report',
-        `${teamLabel} daily summary.\n\nCompleted work, blockers, and next operating window.`,
-        '2026-03-06T16:40:00.000Z',
-      ),
-      createFolder(`${teamId}_reports_phase`, 'Phase Reports', [
-        createFile(
-          `${teamId}_report_2`,
-          `${code}_Phase-01-Report.md`,
-          'Report',
-          `${teamLabel} phase report.\n\nMilestones reached, evidence attached, and decisions logged.`,
-          '2026-03-07T10:25:00.000Z',
-        ),
-      ]),
-    ]),
-    createFolder(`${teamId}_logs`, 'Logs', [
-      createFile(
-        `${teamId}_log_1`,
-        `${code}_Decision-Log.txt`,
-        'Conversation',
-        `${teamLabel} decision log.\n\nCompact operational trace of approvals and escalations.`,
-        '2026-03-07T11:45:00.000Z',
-      ),
-    ]),
-  ];
-}
-
-function createSeedTeamsMapState(): TeamsMapState {
-  const teams = [
-    {
-      teamId: 'team_legal',
-      label: 'SM-Legal',
-      provider: 'Anthropic' as AIProvider,
-      workers: ['W-LC01', 'W-LC02', 'W-LC03'],
-    },
-    {
-      teamId: 'team_marketing',
-      label: 'SM-Marketing',
-      provider: 'OpenAI' as AIProvider,
-      workers: ['W-MK01', 'W-MK02', 'W-MK03'],
-    },
-    {
-      teamId: 'team_clients',
-      label: 'W-Clients / Projects',
-      provider: 'Google' as AIProvider,
-      workers: ['W-Clients / Projects'],
-    },
-  ];
-
-  const teamsGraph: TeamsGraphNode[] = [
-    {
-      id: 'gm_1',
-      type: 'general_manager',
-      label: 'AI General Manager',
-      provider: 'OpenAI',
-      parentId: null,
-      teamId: 'global',
-    },
-  ];
-
-  const foldersByTeam: Record<string, TeamFolderItem[]> = {};
-
-  teams.forEach((team, teamIndex) => {
-    if (team.teamId === 'team_clients') {
-      teamsGraph.push({
-        id: `${team.teamId}_worker_1`,
-        type: 'worker',
-        label: team.label,
-        provider: team.provider,
-        parentId: 'gm_1',
-        teamId: team.teamId,
-      });
-    } else {
-      teamsGraph.push({
-        id: `${team.teamId}_sm`,
-        type: 'senior_manager',
-        label: team.label,
-        provider: team.provider,
-        parentId: 'gm_1',
-        teamId: team.teamId,
-      });
-
-      team.workers.forEach((workerLabel, workerIndex) => {
-        teamsGraph.push({
-          id: `${team.teamId}_worker_${workerIndex + 1}`,
-          type: 'worker',
-          label: workerLabel,
-          provider: PROVIDERS[(teamIndex + workerIndex) % PROVIDERS.length],
-          parentId: `${team.teamId}_sm`,
-          teamId: team.teamId,
-        });
-      });
-    }
-
-    foldersByTeam[team.teamId] = buildFolderSeed(team.teamId, team.label);
-  });
-
-  return { teamsGraph, foldersByTeam };
-}
-
-function normalizeTeamsMapState(input: TeamsMapState): TeamsMapState {
-  const clientManager = input.teamsGraph.find(
-    (node) => node.type === 'senior_manager' && node.teamId === 'team_clients',
-  );
-  const clientWorkers = input.teamsGraph
-    .filter((node) => node.type === 'worker' && node.teamId === 'team_clients')
-    .sort((left, right) => left.id.localeCompare(right.id));
-  const remainingNodes = input.teamsGraph.filter((node) => node.teamId !== 'team_clients');
-  const primaryWorker = clientWorkers[0];
-  const clientWorker: TeamsGraphNode = primaryWorker
-    ? {
-        ...primaryWorker,
-        label: 'W-Clients / Projects',
-        parentId: 'gm_1',
-        provider: primaryWorker.provider || clientManager?.provider || 'Google',
-      }
-    : {
-        id: 'team_clients_worker_1',
-        type: 'worker',
-        label: 'W-Clients / Projects',
-        provider: clientManager?.provider || 'Google',
-        parentId: 'gm_1',
-        teamId: 'team_clients',
-      };
-
-  return {
-    teamsGraph: [...remainingNodes, clientWorker],
-    foldersByTeam: {
-      ...input.foldersByTeam,
-      team_clients:
-        input.foldersByTeam.team_clients ??
-        buildFolderSeed('team_clients', 'W-Clients / Projects'),
-    },
-  };
-}
-
-function getInitialTeamsMapState(): TeamsMapState {
-  if (typeof window === 'undefined') {
-    return createSeedTeamsMapState();
-  }
-
-  try {
-    const saved = window.localStorage.getItem(TEAMS_STORAGE_KEY);
-    if (!saved) {
-      return createSeedTeamsMapState();
-    }
-    return normalizeTeamsMapState(JSON.parse(saved) as TeamsMapState);
-  } catch {
-    return createSeedTeamsMapState();
-  }
-}
-
-function countArtifacts(
-  nodes: TeamFolderItem[],
-): { conversations: number; documents: number; reports: number } {
-  return nodes.reduce(
-    (accumulator, node) => {
-      if (node.type === 'file') {
-        if (node.fileType === 'Conversation') accumulator.conversations += 1;
-        if (node.fileType === 'Document') accumulator.documents += 1;
-        if (node.fileType === 'Report') accumulator.reports += 1;
-        return accumulator;
-      }
-
-      const nested = countArtifacts(node.children ?? []);
-      return {
-        conversations: accumulator.conversations + nested.conversations,
-        documents: accumulator.documents + nested.documents,
-        reports: accumulator.reports + nested.reports,
-      };
-    },
-    { conversations: 0, documents: 0, reports: 0 },
-  );
-}
-
-function getRoleLabel(type: TeamsGraphNode['type']) {
-  if (type === 'general_manager') return 'General Manager';
-  if (type === 'senior_manager') return 'Senior Manager';
-  return 'Worker';
-}
+type TeamsViewMode = 'map' | 'tree';
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -329,45 +60,32 @@ function FileIcon() {
 
 function TeamTree({
   items,
-  compact,
   onOpenFile,
 }: {
   items: TeamFolderItem[];
-  compact?: boolean;
   onOpenFile?: (item: TeamFolderItem) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(items.filter((item) => item.type === 'folder').map((item) => [item.id, true])),
   );
 
-  const renderItems = (nodes: TeamFolderItem[], depth = 0) => {
-    const visibleNodes = compact
-      ? nodes.slice(0, depth === 0 ? 3 : 2)
-      : nodes;
-
-    return visibleNodes.map((node) => {
+  const renderItems = (nodes: TeamFolderItem[], depth = 0) =>
+    nodes.map((node) => {
       const isFolder = node.type === 'folder';
-      const isOpen = compact ? true : expanded[node.id] ?? depth === 0;
-      const canRenderChildren =
-        isFolder &&
-        (compact ? depth < 1 : isOpen) &&
-        (node.children?.length ?? 0) > 0;
+      const isOpen = expanded[node.id] ?? depth === 0;
 
       return (
         <div key={node.id}>
           <button
-            className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left ${
-              compact ? 'text-[10px]' : 'text-[11px]'
-            } text-neutral-700 transition-colors hover:bg-neutral-50`}
+            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] text-neutral-700 transition-colors hover:bg-neutral-50"
+            style={{ paddingLeft: `${depth * 14 + 4}px` }}
             onClick={() => {
-              if (isFolder && !compact) {
+              if (isFolder) {
                 setExpanded((current) => ({ ...current, [node.id]: !current[node.id] }));
                 return;
               }
 
-              if (!isFolder) {
-                onOpenFile?.(node);
-              }
+              onOpenFile?.(node);
             }}
           >
             {isFolder ? <Chevron open={isOpen} /> : <span className="inline-block w-3" />}
@@ -375,52 +93,336 @@ function TeamTree({
             <span className="truncate">{node.name}</span>
           </button>
 
-          {canRenderChildren && (
-            <div className="ml-3 border-l border-neutral-200 pl-3">
-              {renderItems(node.children ?? [], depth + 1)}
+          {isFolder && isOpen && node.children && (
+            <div className="border-l border-neutral-200 pl-2">
+              {renderItems(node.children, depth + 1)}
             </div>
           )}
         </div>
       );
     });
-  };
 
   return <div className="grid gap-1">{renderItems(items)}</div>;
 }
 
-function OrgNodeCard({
+function TeamCard({
   node,
-  subtle,
-  onClick,
+  workers,
+  counts,
+  onEdit,
+  onOpenWorkspace,
 }: {
   node: TeamsGraphNode;
-  subtle?: boolean;
+  workers: TeamsGraphNode[];
+  counts: ReturnType<typeof countArtifacts>;
+  onEdit: () => void;
+  onOpenWorkspace: () => void;
+}) {
+  const theme = getTeamTheme(node.teamId);
+
+  return (
+    <div
+      className="rounded-[16px] border p-4 shadow-[var(--shadow-soft)]"
+      style={{ borderColor: theme.border, backgroundColor: theme.soft }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: theme.accent }}>
+            {node.type === 'senior_manager' ? 'Operational Team' : 'Direct Team'}
+          </div>
+          <div className="mt-1 text-lg font-semibold text-neutral-900">{node.label}</div>
+        </div>
+        <span className="ui-pill border-transparent text-white" style={{ backgroundColor: theme.ribbon }}>
+          {getProviderDisplayName(node.provider)}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="ui-pill" style={{ borderColor: theme.border, color: theme.accent }}>
+          Workers | {workers.length}
+        </span>
+        <span className="ui-pill" style={{ borderColor: theme.border, color: theme.accent }}>
+          Color | {theme.ribbon}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-[11px] text-neutral-600 md:grid-cols-3">
+        <div className="ui-surface-subtle px-3 py-2">
+          Conversations
+          <div className="mt-1 text-lg font-semibold text-neutral-900">{counts.conversations}</div>
+        </div>
+        <div className="ui-surface-subtle px-3 py-2">
+          Documents
+          <div className="mt-1 text-lg font-semibold text-neutral-900">{counts.documents}</div>
+        </div>
+        <div className="ui-surface-subtle px-3 py-2">
+          Reports
+          <div className="mt-1 text-lg font-semibold text-neutral-900">{counts.reports}</div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+          Team Workers
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {workers.map((worker) => (
+            <button
+              key={worker.id}
+              className="ui-pill border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+              onClick={onEdit}
+            >
+              {worker.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          className="ui-button ui-button-primary text-white"
+          style={{ backgroundColor: theme.ribbon, borderColor: theme.ribbon }}
+          onClick={onOpenWorkspace}
+        >
+          Go to Workspace
+        </button>
+        <button className="ui-button text-neutral-700" onClick={onEdit}>
+          Edit Team
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TreeWorkspaceCard({
+  title,
+  subtitle,
+  ribbonColor,
+  borderColor,
+  accentColor,
+  chips,
+  compact,
+  outlineOnly,
+  actionLabel,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  ribbonColor: string;
+  borderColor: string;
+  accentColor: string;
+  chips: string[];
+  compact?: boolean;
+  outlineOnly?: boolean;
+  actionLabel: string;
   onClick: () => void;
 }) {
-  const isGeneralManager = node.type === 'general_manager';
-  const isSeniorManager = node.type === 'senior_manager';
+  const shellBackground = outlineOnly ? '#ffffff' : ribbonColor;
+  const shellColor = outlineOnly ? accentColor : '#ffffff';
 
   return (
     <button
-      className={`w-full rounded-[12px] border px-3 py-3 text-left transition-colors hover:border-neutral-500 ${
-        subtle
-          ? 'border-neutral-200 bg-white shadow-[var(--shadow-soft)]'
-          : isGeneralManager
-            ? 'border-[rgba(17,17,17,0.12)] bg-[rgba(17,17,17,0.03)] shadow-[var(--shadow-soft)]'
-          : isSeniorManager
-            ? 'border-[rgba(0,122,255,0.12)] bg-[rgba(0,122,255,0.04)] shadow-[var(--shadow-soft)]'
-            : 'border-neutral-300 bg-white shadow-[var(--shadow-soft)]'
+      className={`w-full overflow-hidden rounded-[16px] border text-left shadow-[var(--shadow-soft)] transition-transform hover:-translate-y-[1px] ${
+        compact ? 'max-w-[180px]' : ''
       }`}
+      style={{ borderColor: outlineOnly ? accentColor : borderColor, backgroundColor: '#ffffff' }}
       onClick={onClick}
     >
-      <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-400">
-        {getRoleLabel(node.type)}
+      <div
+        className="px-3 py-2"
+        style={{
+          backgroundColor: shellBackground,
+          color: shellColor,
+          borderBottom: outlineOnly ? `1px solid ${borderColor}` : undefined,
+        }}
+      >
+        <div className="text-[9px] uppercase tracking-[0.18em] opacity-75">{subtitle}</div>
+        <div className={`mt-1 font-semibold ${compact ? 'text-[11px]' : 'text-[12px]'}`}>{title}</div>
       </div>
-      <div className="mt-1 text-sm font-semibold text-neutral-900">{node.label}</div>
-      <div className="ui-pill mt-2 text-[10px]">
-        {getProviderDisplayName(node.provider)}
+
+      <div className={`grid gap-2 px-3 py-3 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
+        <div className="flex flex-wrap gap-1">
+          {chips.slice(0, compact ? 2 : 3).map((chip) => (
+            <span
+              key={`${title}_${chip}`}
+              className="rounded-full border px-2 py-0.5"
+              style={{ borderColor, color: accentColor, backgroundColor: '#ffffff' }}
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid gap-1">
+          <div className="h-2.5 rounded-full bg-neutral-100" />
+          <div className="h-2.5 rounded-full bg-neutral-100" />
+          {!compact && <div className="h-2.5 w-[72%] rounded-full bg-neutral-100" />}
+        </div>
+
+        <div className="flex gap-1">
+          <span
+            className="rounded-md px-2 py-1 text-[9px] font-medium text-white"
+            style={{ backgroundColor: ribbonColor }}
+          >
+            {actionLabel}
+          </span>
+          <span className="rounded-md border border-neutral-200 px-2 py-1 text-[9px] text-neutral-600">
+            Edit
+          </span>
+        </div>
       </div>
     </button>
+  );
+}
+
+function TreeStructureView({
+  projectName,
+  generalManager,
+  topLevelUnits,
+  workersByTeam,
+  onOpenMainWorkspace,
+  onOpenWorkspace,
+  onEdit,
+}: {
+  projectName: string;
+  generalManager: TeamsGraphNode;
+  topLevelUnits: TeamsGraphNode[];
+  workersByTeam: Record<string, TeamsGraphNode[]>;
+  onOpenMainWorkspace: () => void;
+  onOpenWorkspace: (node: TeamsGraphNode) => void;
+  onEdit: (nodeId: string) => void;
+}) {
+  return (
+    <div className="ui-surface p-5">
+      <div className="mb-5 grid gap-3 md:grid-cols-2">
+        <div className="ui-surface-subtle px-4 py-3 text-sm text-neutral-700">
+          Tree View is the structural reference for context recovery. It shows how the main project,
+          the Main Workspace, and each sub-team connect when focused execution starts to fragment
+          the big picture.
+        </div>
+        <div className="ui-surface-subtle px-4 py-3 text-sm text-neutral-700">
+          This tree is organizational only. Documentation trees remain below as a separate file
+          structure, so hierarchy and stored outputs never get conflated.
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center">
+        <div className="rounded-[18px] border border-neutral-200 bg-white px-6 py-4 text-center shadow-[var(--shadow-soft)]">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Main Project</div>
+          <div className="mt-1 text-lg font-semibold text-neutral-900">{projectName}</div>
+        </div>
+
+        <div className="h-8 w-px bg-neutral-900/70" />
+
+        <div className="w-full max-w-[760px] rounded-[20px] border border-[rgba(17,17,17,0.12)] bg-white shadow-[var(--shadow-soft)]">
+          <div className="rounded-t-[20px] bg-neutral-950 px-5 py-3 text-white">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">Main Workspace</div>
+            <div className="mt-1 text-base font-semibold">{generalManager.label}</div>
+          </div>
+
+          <div className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(180px,1.15fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="rounded-[16px] border border-neutral-200 bg-[rgba(17,17,17,0.03)] px-4 py-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Manager Node</div>
+              <div className="mt-2 text-sm font-semibold text-neutral-900">{generalManager.label}</div>
+              <div className="mt-2 text-[11px] text-neutral-500">{getProviderDisplayName(generalManager.provider)}</div>
+            </div>
+            {['Worker 1', 'Worker 2'].map((label) => (
+              <div key={label} className="rounded-[16px] border border-neutral-200 bg-[var(--color-surface-soft)] px-4 py-4">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Core Team</div>
+                <div className="mt-2 text-sm font-semibold text-neutral-900">{label}</div>
+                <div className="mt-2 text-[11px] text-neutral-500">Main Workspace chatbox</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-center gap-2 border-t border-neutral-200 px-4 py-4">
+            <button className="ui-button ui-button-primary text-white" onClick={onOpenMainWorkspace}>
+              Go to Main Workspace
+            </button>
+            <button className="ui-button text-neutral-700" onClick={() => onEdit(generalManager.id)}>
+              Edit
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 h-8 w-px bg-neutral-900/70" />
+
+        <div className="relative w-full pt-8">
+          <div className="absolute left-1/2 top-0 h-8 w-px -translate-x-1/2 bg-neutral-900/70" />
+          <div className="absolute left-[10%] right-[10%] top-8 h-px bg-neutral-900/70" />
+
+          <div className="grid gap-6 pt-6 xl:grid-cols-3">
+            {topLevelUnits.map((unit) => {
+              const theme = getTeamTheme(unit.teamId);
+              const workers = workersByTeam[unit.teamId] ?? [];
+              const isDirectUnit = unit.type === 'worker';
+
+              return (
+                <div key={unit.id} className="relative flex flex-col items-center">
+                  <div className="absolute top-0 h-6 w-px bg-neutral-900/70" />
+
+                  <div className="w-full pt-6">
+                    <div className="flex flex-col items-center">
+                      <TreeWorkspaceCard
+                        title={unit.label}
+                        subtitle={
+                          unit.type === 'senior_manager'
+                            ? 'Sub-Team Workspace'
+                            : 'Direct Team Workspace'
+                        }
+                        ribbonColor={theme.ribbon}
+                        borderColor={theme.border}
+                        accentColor={theme.accent}
+                        chips={[
+                          getProviderDisplayName(unit.provider),
+                          `${workers.length} workers`,
+                          isDirectUnit ? 'Direct' : 'Lead',
+                        ]}
+                        outlineOnly={isDirectUnit}
+                        actionLabel="Open"
+                        onClick={() => onOpenWorkspace(unit)}
+                      />
+
+                      {workers.length > 0 && !isDirectUnit && (
+                        <>
+                          <div className="h-5 w-px bg-neutral-900/70" />
+                          <div className="relative w-full px-5 pt-3">
+                            <div className="absolute left-[18%] right-[18%] top-0 h-px bg-neutral-900/70" />
+                            <div
+                              className="grid gap-3 pt-3"
+                              style={{
+                                gridTemplateColumns: `repeat(${Math.min(workers.length, 3)}, minmax(0, 1fr))`,
+                              }}
+                            >
+                              {workers.map((worker) => (
+                                <div key={worker.id} className="flex flex-col items-center">
+                                  <div className="h-3 w-px bg-neutral-900/70" />
+                                  <TreeWorkspaceCard
+                                    title={worker.label}
+                                    subtitle="Worker"
+                                    ribbonColor={theme.ribbon}
+                                    borderColor={theme.border}
+                                    accentColor={theme.accent}
+                                    chips={[getProviderDisplayName(worker.provider), 'Worker']}
+                                    compact
+                                    actionLabel="Open"
+                                    onClick={() => onEdit(worker.id)}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -434,9 +436,10 @@ export function PageD() {
     null,
   );
   const [toast, setToast] = useState('');
+  const [viewMode, setViewMode] = useState<TeamsViewMode>('map');
 
   useEffect(() => {
-    window.localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(teamsState));
+    saveTeamsMapState(teamsState);
   }, [teamsState]);
 
   const selectedNode =
@@ -454,53 +457,19 @@ export function PageD() {
     () => teamsState.teamsGraph.find((node) => node.type === 'general_manager') ?? null,
     [teamsState.teamsGraph],
   );
-  const topLevelUnits = useMemo(() => {
-    const orderIndex = (node: TeamsGraphNode) => {
-      if (node.teamId === 'team_legal') return 0;
-      if (node.teamId === 'team_marketing') return 1;
-      if (node.teamId === 'team_clients') return 2;
-      return 3;
-    };
-
-    return [...teamsState.teamsGraph]
-      .filter((node) => node.parentId === 'gm_1')
-      .sort((left, right) => {
-        const leftOrder = orderIndex(left);
-        const rightOrder = orderIndex(right);
-
-        if (leftOrder !== rightOrder) {
-          return leftOrder - rightOrder;
-        }
-
-        return left.label.localeCompare(right.label);
-      });
-  }, [teamsState.teamsGraph]);
+  const topLevelUnits = useMemo(
+    () => getTopLevelUnits(teamsState.teamsGraph),
+    [teamsState.teamsGraph],
+  );
   const seniorManagers = useMemo(
     () => teamsState.teamsGraph.filter((node) => node.type === 'senior_manager'),
     [teamsState.teamsGraph],
   );
   const workersByTeam = useMemo(
-    () =>
-      Object.fromEntries(
-        seniorManagers.map((manager) => [
-          manager.teamId,
-          teamsState.teamsGraph.filter(
-            (node) => node.type === 'worker' && node.teamId === manager.teamId,
-          ),
-        ]),
-      ) as Record<string, TeamsGraphNode[]>,
-    [seniorManagers, teamsState.teamsGraph],
+    () => getWorkersByTeam(teamsState.teamsGraph),
+    [teamsState.teamsGraph],
   );
-
   const totalWorkers = teamsState.teamsGraph.filter((node) => node.type === 'worker').length;
-
-  const getWorkspaceAgentForTeam = (teamId: string): AgentRole => {
-    const index = topLevelUnits.findIndex((node) => node.teamId === teamId);
-    if (index === -1) {
-      return 'manager';
-    }
-    return CHAT_AGENT_ORDER[index % CHAT_AGENT_ORDER.length];
-  };
 
   const openFolderFile = (item: TeamFolderItem, teamId: string, projectName: string) => {
     const linkedFile =
@@ -516,9 +485,9 @@ export function PageD() {
     const file: SavedFile = {
       id: item.id,
       projectId: teamId,
-      agent: getWorkspaceAgentForTeam(teamId),
+      agent: getWorkspaceAgentForTeam(teamId, teamsState.teamsGraph),
       title: item.name.replace(/\.[^.]+$/, ''),
-      type: item.fileType ?? 'Document',
+      type: item.fileType ?? ('Document' as FileType),
       content: item.content ?? `${projectName}\n\nSeed file generated for the Teams Map demo.`,
       createdAt: item.createdAt ?? '2026-03-07T10:00:00.000Z',
     };
@@ -635,166 +604,185 @@ export function PageD() {
     setToast('Operational scale reduced.');
   };
 
+  const openMainWorkspace = (focusAgent: TeamsGraphNode | null = null) => {
+    dispatch({
+      type: 'SET_WORKSPACE_FOCUS',
+      agent:
+        focusAgent?.type === 'general_manager'
+          ? 'manager'
+          : focusAgent
+            ? getWorkspaceAgentForTeam(focusAgent.teamId, teamsState.teamsGraph)
+            : 'manager',
+    });
+    dispatch({ type: 'SET_PAGE', page: 'A' });
+  };
+
+  const openTeamWorkspace = (node: TeamsGraphNode) => {
+    dispatch({
+      type: 'SET_SECONDARY_WORKSPACE',
+      workspace: getSecondaryWorkspaceTarget(node),
+    });
+    dispatch({ type: 'SET_PAGE', page: 'F' });
+  };
+
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-3 py-3">
       <div className="app-frame mx-auto flex h-full min-h-0 w-full max-w-[1600px] overflow-hidden">
-        <AgentPanel agent="manager" style={{ width: 360, flexShrink: 0 }} />
+        <AgentPanel
+          agent="manager"
+          style={{ width: SECONDARY_MANAGER_PANEL_WIDTH, flexShrink: 0 }}
+        />
 
-        <div className="ui-divider-rail flex w-4 shrink-0 items-start justify-center pt-4 text-[10px]">
-          <div className="grid gap-1 text-center">
-            <span>{'<'}</span>
-            <span>{'>'}</span>
-          </div>
-        </div>
+        <DividerRail />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-soft)]">
           <div className="scrollbar-thin flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
             <section className="flex min-h-full flex-col gap-6 px-6 py-6">
-            <div className="flex items-start justify-between gap-6">
-              <div>
-                <h1 className="ui-title">
-                  Operational Structure (Teams)
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-                  AISync scales from one general manager into multiple senior managers and worker pods without changing the documentation backbone.
-                </p>
-              </div>
+              <div className="flex flex-wrap items-start justify-between gap-6">
+                <div>
+                  <h1 className="ui-title">Teams Map</h1>
+                  <p className="mt-2 max-w-3xl text-sm text-neutral-600">
+                    Map View is for direct workspace access. Tree View is for structural orientation
+                    and context recovery when execution detail starts to hide the overall system.
+                  </p>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
-                {PROVIDERS.map((provider) => (
-                  <span
-                    key={provider}
-                    className="ui-pill"
-                  >
-                    {getProviderDisplayName(provider)}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="ui-button ui-button-primary text-white"
-                onClick={handleAddTeam}
-              >
-                + Add Team
-              </button>
-              <button
-                className="ui-button text-neutral-700"
-                onClick={handleScaleUp}
-              >
-                Scale Up
-              </button>
-              <button
-                className="ui-button text-neutral-700"
-                onClick={handleScaleDown}
-              >
-                Scale Down
-              </button>
-              <div className="ui-surface ml-auto px-3 py-2 text-xs text-neutral-600">
-                Teams: {seniorManagers.length} | Workers: {totalWorkers}
-              </div>
-            </div>
-
-            <div className="ui-surface flex-1 p-6">
-              {generalManager && (
-                <div className="flex flex-col items-center">
-                  <div className="w-full max-w-[280px]">
-                    <OrgNodeCard node={generalManager} onClick={() => setSelectedNodeId(generalManager.id)} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="rounded-full border border-neutral-200 bg-white p-1">
+                    {(['map', 'tree'] as TeamsViewMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                          viewMode === mode
+                            ? 'bg-neutral-900 text-white'
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                        onClick={() => setViewMode(mode)}
+                      >
+                        {mode === 'map' ? 'Map' : 'Tree'}
+                      </button>
+                    ))}
                   </div>
 
-                  <div className="mt-4 h-6 w-px bg-neutral-300" />
-                  <div className="h-px w-[76%] bg-neutral-300" />
-
-                  <div className="mt-4 grid w-full gap-6 xl:grid-cols-3">
-                    {topLevelUnits.map((unit) => {
-                      const topLevelCardWidthClass = 'w-full';
-                      const teamWorkers =
-                        unit.type === 'senior_manager' ? workersByTeam[unit.teamId] ?? [] : [];
-                      const workerGridClass =
-                        teamWorkers.length === 1
-                          ? 'mx-auto grid w-full max-w-[220px] gap-3'
-                          : 'grid w-full gap-3 md:grid-cols-3 xl:grid-cols-3';
-
-                      return (
-                        <div key={unit.id} className="ui-surface-subtle flex flex-col items-center p-4">
-                          <div className="mb-3 h-5 w-px bg-neutral-300" />
-                          <div className={topLevelCardWidthClass}>
-                            <OrgNodeCard
-                              node={unit}
-                              subtle={unit.type === 'worker'}
-                              onClick={() => setSelectedNodeId(unit.id)}
-                            />
-                          </div>
-
-                          {unit.type === 'senior_manager' && (
-                            <>
-                              <div className="mt-4 h-5 w-px bg-neutral-300" />
-                              <div className={workerGridClass}>
-                                {teamWorkers.map((worker) => (
-                                  <div key={worker.id} className="flex flex-col items-center">
-                                    <div className="mb-2 h-4 w-px bg-neutral-300" />
-                                    <OrgNodeCard
-                                      node={worker}
-                                      subtle
-                                      onClick={() => setSelectedNodeId(worker.id)}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
+                  <div className="ui-surface px-3 py-2 text-xs text-neutral-600">
+                    Teams: {seniorManagers.length} | Workers: {totalWorkers}
                   </div>
                 </div>
-              )}
-            </div>
-
-            <div className="ui-surface px-4 py-4">
-              <div className="mb-4 text-sm font-semibold tracking-[0.16em] text-neutral-900">
-                Documentation Structure (Outputs)
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-3">
-                {topLevelUnits.map((unit) => {
-                  const counts = countArtifacts(teamsState.foldersByTeam[unit.teamId] ?? []);
-                  return (
-                    <div key={unit.teamId} className="ui-surface-subtle p-3">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <div className="text-xs font-semibold text-neutral-800">{unit.label}</div>
-                        <div className="text-[10px] text-neutral-500">
-                          C {counts.conversations} | D {counts.documents} | R {counts.reports}
+              <div className="flex flex-wrap gap-2">
+                <button className="ui-button ui-button-primary text-white" onClick={handleAddTeam}>
+                  + Add Team
+                </button>
+                <button className="ui-button text-neutral-700" onClick={handleScaleUp}>
+                  Scale Up
+                </button>
+                <button className="ui-button text-neutral-700" onClick={handleScaleDown}>
+                  Scale Down
+                </button>
+              </div>
+
+              {generalManager &&
+                (viewMode === 'map' ? (
+                  <div className="grid gap-6">
+                    <div className="ui-surface p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
+                            Main Workspace Access
+                          </div>
+                          <div className="mt-1 text-xl font-semibold text-neutral-900">
+                            {generalManager.label}
+                          </div>
+                          <div className="mt-2 text-sm text-neutral-600">
+                            Main Workspace stays separate from team workspaces. Use the cards below
+                            to jump directly into the right sub-team workspace.
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span className="ui-pill">{getProviderDisplayName(generalManager.provider)}</span>
+                          <button
+                            className="ui-button ui-button-primary text-white"
+                            onClick={() => openMainWorkspace(generalManager)}
+                          >
+                            Go to Main Workspace
+                          </button>
+                          <button className="ui-button text-neutral-700" onClick={() => setSelectedNodeId(generalManager.id)}>
+                            Edit
+                          </button>
                         </div>
                       </div>
-
-                      <TeamTree items={teamsState.foldersByTeam[unit.teamId] ?? []} compact />
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-            </section>
 
-            <section className="border-t border-neutral-200 bg-white px-6 py-6">
-              <div className="mb-4">
-                <h2 className="text-xl font-semibold text-neutral-900">Project Folders (Full)</h2>
-                <p className="mt-1 text-sm text-neutral-600">
-                  The full tree reveals the depth of each team&apos;s operational outputs using the same folder data shown in the mini strip above.
-                </p>
-              </div>
-
-              <div className="grid gap-5 xl:grid-cols-3">
-                {topLevelUnits.map((unit) => (
-                  <div key={unit.teamId} className="ui-surface-subtle p-4">
-                    <div className="mb-3 text-sm font-semibold text-neutral-900">{unit.label}</div>
-                    <TeamTree
-                      items={teamsState.foldersByTeam[unit.teamId] ?? []}
-                      onOpenFile={(item) => openFolderFile(item, unit.teamId, unit.label)}
-                    />
+                    <div className="grid gap-5 xl:grid-cols-3">
+                      {topLevelUnits.map((unit) => (
+                        <TeamCard
+                          key={unit.id}
+                          node={unit}
+                          workers={workersByTeam[unit.teamId] ?? []}
+                          counts={countArtifacts(teamsState.foldersByTeam[unit.teamId] ?? [])}
+                          onEdit={() => setSelectedNodeId(unit.id)}
+                          onOpenWorkspace={() => openTeamWorkspace(unit)}
+                        />
+                      ))}
+                    </div>
                   </div>
+                ) : (
+                  <TreeStructureView
+                    projectName={state.projectName}
+                    generalManager={generalManager}
+                    topLevelUnits={topLevelUnits}
+                    workersByTeam={workersByTeam}
+                    onOpenMainWorkspace={() => openMainWorkspace(generalManager)}
+                    onOpenWorkspace={openTeamWorkspace}
+                    onEdit={setSelectedNodeId}
+                  />
                 ))}
+
+              <div className="ui-surface px-4 py-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold tracking-[0.16em] text-neutral-900">
+                      Documentation Trees
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600">
+                      File structure lives separately from the organizational tree above.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-3">
+                  {topLevelUnits.map((unit) => {
+                    const theme = getTeamTheme(unit.teamId);
+                    const counts = countArtifacts(teamsState.foldersByTeam[unit.teamId] ?? []);
+
+                    return (
+                      <div key={unit.teamId} className="ui-surface-subtle p-3" style={{ borderColor: theme.border }}>
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-semibold text-neutral-800">{unit.label}</div>
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.14em]" style={{ color: theme.accent }}>
+                              {counts.conversations} conversations | {counts.documents} documents | {counts.reports} reports
+                            </div>
+                          </div>
+                          <button
+                            className="ui-button min-h-8 px-3 text-[11px] text-white"
+                            style={{ backgroundColor: theme.ribbon, borderColor: theme.ribbon }}
+                            onClick={() => openTeamWorkspace(unit)}
+                          >
+                            Go to Workspace
+                          </button>
+                        </div>
+
+                        <TeamTree
+                          items={teamsState.foldersByTeam[unit.teamId] ?? []}
+                          onOpenFile={(item) => openFolderFile(item, unit.teamId, unit.label)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </section>
           </div>
@@ -843,37 +831,41 @@ export function PageD() {
               </div>
             </div>
 
-            <div className="ui-surface-subtle px-3 py-2 text-xs text-neutral-600">
-              Open Chat will highlight the{' '}
-              <span className="font-medium text-neutral-900">
-                {selectedNode.type === 'general_manager'
-                  ? 'Manager'
-                  : getWorkspaceAgentForTeam(selectedNode.teamId) === 'worker1'
-                    ? 'Worker 1'
-                    : getWorkspaceAgentForTeam(selectedNode.teamId) === 'worker2'
-                      ? 'Worker 2'
-                      : 'Manager'}
-              </span>{' '}
-              panel in Main Workspace.
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="ui-button ui-button-primary text-white"
-                onClick={() => {
-                  dispatch({
-                    type: 'SET_WORKSPACE_FOCUS',
-                    agent:
-                      selectedNode.type === 'general_manager'
-                        ? 'manager'
-                        : getWorkspaceAgentForTeam(selectedNode.teamId),
-                  });
-                  dispatch({ type: 'SET_PAGE', page: 'A' });
-                  setSelectedNodeId(null);
+            {selectedNode.type !== 'general_manager' && (
+              <div
+                className="ui-surface-subtle px-3 py-2 text-xs"
+                style={{
+                  borderColor: getTeamTheme(selectedNode.teamId).border,
+                  color: getTeamTheme(selectedNode.teamId).accent,
                 }}
               >
-                Open Chat
-              </button>
+                Secondary workspace color: {getTeamTheme(selectedNode.teamId).ribbon}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {selectedNode.type === 'general_manager' ? (
+                <button
+                  className="ui-button ui-button-primary text-white"
+                  onClick={() => {
+                    openMainWorkspace(selectedNode);
+                    setSelectedNodeId(null);
+                  }}
+                >
+                  Go to Main Workspace
+                </button>
+              ) : (
+                <button
+                  className="ui-button ui-button-primary text-white"
+                  onClick={() => {
+                    openTeamWorkspace(selectedNode);
+                    setSelectedNodeId(null);
+                  }}
+                >
+                  Go to Workspace
+                </button>
+              )}
+
               <button
                 className="ui-button text-neutral-700"
                 onClick={() => {
@@ -892,10 +884,7 @@ export function PageD() {
               >
                 View Calendar
               </button>
-              <button
-                className="ui-button ml-auto text-neutral-700"
-                onClick={handleSaveNode}
-              >
+              <button className="ui-button ml-auto text-neutral-700" onClick={handleSaveNode}>
                 Save changes
               </button>
             </div>

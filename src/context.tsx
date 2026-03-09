@@ -9,6 +9,7 @@ import type {
   Page,
   Project,
   SavedFile,
+  SecondaryWorkspaceTarget,
   WorkerConfig,
 } from './types';
 import { seedCalendarEvents, seedFiles, seedMessages, seedProjects } from './data/seed';
@@ -18,6 +19,7 @@ const STORAGE_KEY = 'aisync_demo_state_v3';
 type Action =
   | { type: 'SET_PAGE'; page: Page }
   | { type: 'SET_WORKSPACE_FOCUS'; agent: AgentRole | null }
+  | { type: 'SET_SECONDARY_WORKSPACE'; workspace: SecondaryWorkspaceTarget | null }
   | { type: 'ADD_MESSAGE'; agent: AgentRole; message: Message }
   | { type: 'TOGGLE_SELECT_MESSAGE'; agent: AgentRole; messageId: string }
   | { type: 'CLEAR_SELECTION'; agent: AgentRole }
@@ -75,6 +77,7 @@ function buildSeedState(): AppState {
     },
     workerConfigs: [],
     workspaceFocusAgent: null,
+    secondaryWorkspace: null,
   };
 }
 
@@ -125,6 +128,7 @@ function getInitialState(): AppState {
         worker2: [],
       },
       workspaceFocusAgent: null,
+      secondaryWorkspace: null,
     };
   } catch {
     return seed;
@@ -137,6 +141,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, currentPage: action.page };
     case 'SET_WORKSPACE_FOCUS':
       return { ...state, workspaceFocusAgent: action.agent };
+    case 'SET_SECONDARY_WORKSPACE':
+      return { ...state, secondaryWorkspace: action.workspace };
     case 'ADD_MESSAGE':
       return {
         ...state,
@@ -273,6 +279,7 @@ interface SaveFileArgs {
   type: FileType;
   projectId: string;
   date?: string;
+  sourceLabel?: string;
 }
 
 interface SaveWorkerConfigArgs {
@@ -298,19 +305,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
   }, [state]);
 
-  const saveFile = ({ agent, content, title, type, projectId, date }: SaveFileArgs) => {
+  const saveFile = ({ agent, content, title, type, projectId, date, sourceLabel }: SaveFileArgs) => {
     const createdAt = new Date().toISOString();
     const fileId = `file_${Date.now()}`;
     const projectName =
       state.projects.find((project) => project.id === projectId)?.name ?? projectId;
     const agentLabel =
       agent === 'manager' ? 'Manager' : agent === 'worker1' ? 'Worker 1' : 'Worker 2';
+    const displaySource = sourceLabel ?? agentLabel;
     const eventDate = date ?? createdAt.slice(0, 10);
 
     const file: SavedFile = {
       id: fileId,
       projectId,
       agent,
+      sourceLabel,
       title,
       type,
       content,
@@ -321,8 +330,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: `event_${Date.now()}`,
       projectId,
       agent,
+      sourceLabel,
       fileId,
-      title: `${projectName} | ${agentLabel} | ${title}`,
+      title: `${projectName} | ${displaySource} | ${title}`,
       date: eventDate,
       time: getBusinessTime(new Date()),
     };

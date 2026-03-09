@@ -86,9 +86,17 @@ export function BottomNav() {
     resetWorkerForm();
   };
 
+  const ribbonColor =
+    state.currentPage === 'F' && state.secondaryWorkspace
+      ? state.secondaryWorkspace.color
+      : '#111111';
+
   return (
     <>
-      <nav className="ui-bottomnav relative shrink-0 px-4 text-white">
+      <nav
+        className="ui-bottomnav relative shrink-0 px-4 text-white"
+        style={{ backgroundColor: ribbonColor }}
+      >
         <div className="mx-auto flex h-12 max-w-[1600px] min-w-0 items-center justify-center gap-3 overflow-hidden lg:gap-5">
           <NavButton
             label="+ Worker"
@@ -112,6 +120,17 @@ export function BottomNav() {
           <span className="text-white/20">|</span>
 
           <NavButton
+            label="Teams Map"
+            active={state.currentPage === 'D'}
+            onClick={() => {
+              dispatch({ type: 'SET_PAGE', page: 'D' });
+              closeMenus();
+            }}
+          />
+
+          <span className="text-white/20">|</span>
+
+          <NavButton
             label="Documentation Mode"
             active={state.currentPage === 'B'}
             onClick={() => {
@@ -127,17 +146,6 @@ export function BottomNav() {
             active={state.currentPage === 'C'}
             onClick={() => {
               dispatch({ type: 'SET_PAGE', page: 'C' });
-              closeMenus();
-            }}
-          />
-
-          <span className="text-white/20">|</span>
-
-          <NavButton
-            label="Teams Map"
-            active={state.currentPage === 'D'}
-            onClick={() => {
-              dispatch({ type: 'SET_PAGE', page: 'D' });
               closeMenus();
             }}
           />

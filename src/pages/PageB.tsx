@@ -1,88 +1,12 @@
 import { useMemo, useState } from 'react';
 import { AgentPanel } from '../components/AgentPanel';
+import { DividerRail } from '../components/DividerRail';
+import { DocumentationTree } from '../components/DocumentationTree';
 import { FileViewer } from '../components/FileViewer';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
 import { useApp } from '../context';
-import type { SavedFile } from '../types';
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`h-3 w-3 transition-transform ${open ? 'rotate-90' : ''}`}
-      viewBox="0 0 12 12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <path d="M4 2.5L8 6L4 9.5" />
-    </svg>
-  );
-}
-
-function FolderIcon() {
-  return (
-    <svg className="h-3.5 w-3.5 text-amber-500" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M1.5 3.25h4l1 1.25h8v7.75H1.5z" />
-      <path d="M1.5 4.5h13v-1H6.9L5.9 2.25H1.5z" className="opacity-70" />
-    </svg>
-  );
-}
-
-function FileIcon() {
-  return (
-    <svg className="h-3.5 w-3.5 text-neutral-500" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M3 1.5h6.5L13 5v9.5H3z" />
-      <path d="M9.5 1.5V5H13" className="opacity-50" />
-    </svg>
-  );
-}
-
-function FolderSection({
-  label,
-  files,
-  extension,
-  onOpenFile,
-}: {
-  label: string;
-  files: SavedFile[];
-  extension: string;
-  onOpenFile: (fileId: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div>
-      <button
-        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <Chevron open={open} />
-        <FolderIcon />
-        <span>{label}/</span>
-      </button>
-
-      {open && (
-        <div className="relative mt-1 ml-3 border-l border-neutral-200 pl-3">
-          {files.length > 0 ? (
-            files.map((file) => (
-              <button
-                key={file.id}
-                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-                onClick={() => onOpenFile(file.id)}
-              >
-                <FileIcon />
-                <span className="truncate">{file.title}.{extension}</span>
-              </button>
-            ))
-          ) : (
-            <div className="px-1 py-0.5 text-[11px] text-neutral-400">No files yet.</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+import { SECONDARY_MANAGER_PANEL_WIDTH } from '../layout';
 
 function YearPreview() {
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -136,27 +60,12 @@ function ProjectCard({
         <div className="h-px flex-1 bg-neutral-300" />
       </div>
 
-      <div className="ui-surface h-full min-h-[290px] px-3 py-3">
-        <div className="grid gap-2">
-          <FolderSection
-            label="Conversations"
-            files={grouped.conversations}
-            extension="txt"
-            onOpenFile={onOpenFile}
-          />
-          <FolderSection
-            label="Documents"
-            files={grouped.documents}
-            extension="docx"
-            onOpenFile={onOpenFile}
-          />
-          <FolderSection
-            label="Reports"
-            files={grouped.reports}
-            extension="md"
-            onOpenFile={onOpenFile}
-          />
-        </div>
+      <div className="ui-surface h-full min-h-[320px] px-3 py-3">
+        <DocumentationTree
+          projectName={projectName}
+          groupedFiles={grouped}
+          onOpenFile={onOpenFile}
+        />
 
         <div className="mt-4 flex flex-wrap gap-3 border-t border-neutral-200 pt-3 text-[11px]">
           <button
@@ -208,14 +117,12 @@ export function PageB() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-3 py-3">
       <div className="app-frame mx-auto flex h-full min-h-0 w-full max-w-[1600px] overflow-hidden">
-        <AgentPanel agent="manager" showSaveAction style={{ width: 360, flexShrink: 0 }} />
+        <AgentPanel
+          agent="manager"
+          style={{ width: SECONDARY_MANAGER_PANEL_WIDTH, flexShrink: 0 }}
+        />
 
-        <div className="ui-divider-rail flex w-4 shrink-0 items-start justify-center pt-4 text-[10px]">
-          <div className="grid gap-1 text-center">
-            <span>{'<'}</span>
-            <span>{'>'}</span>
-          </div>
-        </div>
+        <DividerRail />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-soft)]">
           <div className="px-3 pb-2 pt-3">
@@ -251,8 +158,8 @@ export function PageB() {
               <div className="grid gap-2">
                 <div className="ui-surface-subtle w-[250px] px-3 py-2 text-[10px] text-neutral-700">
                   <div className="mb-1 font-semibold">Set backups</div>
-                  <div>AISync saves reports to: ~/AISync/ProjectName/ [Change]</div>
-                  <div>Reports are saved daily and organized chronologically.</div>
+                  <div>Manual session backups are indexed into this documentation tree.</div>
+                  <div>The path above is one continuous local hierarchy from drive to file.</div>
                 </div>
               </div>
 
