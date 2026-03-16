@@ -223,11 +223,11 @@ export function SecondaryWorkspacePanel({
       style={style}
     >
       <div
-        className="px-3 py-2"
+        className="ui-chat-panel-header ui-team-panel-header px-3 py-2"
         style={{ backgroundColor: theme.soft, color: theme.accent }}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex-1 text-left text-[11px] font-semibold tracking-[0.12em]">
+        <div className="ui-chat-panel-header-row flex items-center justify-between gap-2">
+          <div className="ui-chat-panel-title min-w-0 flex-1 text-left text-[11px] font-semibold tracking-[0.12em]">
             <div className="truncate uppercase tracking-[0.16em] text-[10px] opacity-70">
               {teamLabel}
             </div>
@@ -247,17 +247,20 @@ export function SecondaryWorkspacePanel({
 
       <div
         ref={viewportRef}
-        className="scrollbar-thin flex-1 overflow-y-auto px-3 py-3"
+        className="ui-chat-viewport scrollbar-thin flex-1 overflow-y-auto px-3 py-3"
         style={{ minHeight: 0 }}
       >
-        <div className="flex flex-col gap-3">
+        <div className="ui-chat-message-list flex flex-col gap-3">
           {messages.map((message) => {
             const isSelected = selectedIds.includes(message.id);
             const isUser = message.role === 'user';
             const isForwarded = message.variant === 'forwarded';
 
             return (
-              <div key={message.id} className={`group flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={message.id}
+                className={`ui-chat-message-row group flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+              >
                 {!isUser && (
                   <button
                     className={`mt-1 h-4 w-4 rounded border transition-colors ${
@@ -275,12 +278,12 @@ export function SecondaryWorkspacePanel({
                   className={`max-w-[88%] text-left ${isUser ? 'order-1' : ''}`}
                   onClick={() => onToggleSelect(message.id)}
                 >
-                  <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-neutral-400">
+                  <div className="ui-chat-message-meta mb-1 flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-neutral-400">
                     <span>{message.senderLabel}</span>
                     <span>{message.timestamp}</span>
                   </div>
                   <div
-                    className={`px-3 py-2 text-xs leading-5 transition-shadow ${
+                    className={`ui-chat-message-bubble px-3 py-2 text-xs leading-5 transition-shadow ${
                       isForwarded
                         ? 'ui-message-bubble ui-message-bubble-forwarded'
                         : isUser
@@ -321,7 +324,7 @@ export function SecondaryWorkspacePanel({
         </div>
       </div>
 
-      <div className="shrink-0 px-3 pb-2 pt-1">
+      <div className="ui-chat-composer-section shrink-0 px-3 pb-2 pt-1">
         <div className="ui-chat-composer">
           <input
             className="ui-chat-composer-input"
@@ -344,7 +347,7 @@ export function SecondaryWorkspacePanel({
         </div>
       </div>
 
-      <div className="shrink-0 px-3 pb-2 pt-1">
+      <div className="ui-chat-forward-section shrink-0 px-3 pb-2 pt-1">
         <div className="ui-forward-row">
           <span className="ui-meta shrink-0 text-[11px]">Select messages to forward</span>
 
@@ -429,8 +432,8 @@ export function SecondaryWorkspacePanel({
         )}
       </div>
 
-      <div className="shrink-0 px-3 pb-3 pt-1">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="ui-chat-actions-section shrink-0 px-3 pb-3 pt-1">
+        <div className="ui-chat-actions-grid grid grid-cols-1 gap-2 sm:grid-cols-3">
           <button
             className="ui-button px-3 text-xs text-neutral-700"
             onClick={() => setShowRefreshConfirm(true)}

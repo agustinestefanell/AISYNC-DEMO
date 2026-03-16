@@ -39,12 +39,12 @@ export function PageA() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-2">
-        <div className="ui-surface grid grid-cols-3 gap-1 p-1 sm:hidden">
+        <div className="ui-surface ui-workspace-tabs app-short-landscape-grid grid grid-cols-3 gap-1 p-1 sm:hidden">
           {workspaceTabs.map((tab) => (
             <button
               key={tab.agent}
               data-workspace-tab={tab.agent}
-              className={`min-h-10 min-w-0 rounded-[10px] px-2 text-xs font-medium ${
+              className={`ui-workspace-tab min-h-10 min-w-0 rounded-[10px] px-2 text-xs font-medium ${
                 mobileAgent === tab.agent
                   ? 'bg-neutral-900 text-white'
                   : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
@@ -57,7 +57,7 @@ export function PageA() {
           ))}
         </div>
 
-        <div className="ui-surface hidden items-center justify-between gap-3 px-3 py-2 sm:flex lg:hidden">
+        <div className="ui-surface app-short-landscape-hide hidden items-center justify-between gap-3 px-3 py-2 sm:flex lg:hidden">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
             Tablet Workspace
           </div>
@@ -78,11 +78,11 @@ export function PageA() {
           </div>
         </div>
 
-        <div className="app-frame flex min-h-0 flex-1 overflow-hidden sm:hidden">
+        <div className="app-frame app-short-landscape-flex flex min-h-0 flex-1 overflow-hidden sm:hidden">
           {renderPanel(mobileAgent)}
         </div>
 
-        <div className="app-frame hidden min-h-0 flex-1 overflow-hidden sm:flex lg:hidden">
+        <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex lg:hidden">
           <AgentPanel
             agent="manager"
             className={state.workspaceFocusAgent === 'manager' ? focusClass : ''}

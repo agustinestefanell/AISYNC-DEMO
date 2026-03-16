@@ -56,6 +56,12 @@ function ResponsiveDiagnostics({
           .map((element) => element.getAttribute(attribute) || '')
           .filter(Boolean);
 
+      const visibleFlag = (selector: string) =>
+        Array.from(document.querySelectorAll(selector)).some((element) => isVisibleElement(element));
+
+      const mainShell = document.querySelector('.app-main-shell');
+      const pageShell = document.querySelector('.app-main-shell > .app-page-shell');
+
       setSnapshot(
         JSON.stringify({
           currentPage,
@@ -66,10 +72,21 @@ function ResponsiveDiagnostics({
           hasHorizontalOverflow:
             document.documentElement.scrollWidth > window.innerWidth ||
             document.body.scrollWidth > window.innerWidth,
+          mainShellClientHeight: mainShell?.clientHeight ?? null,
+          mainShellScrollHeight: mainShell?.scrollHeight ?? null,
+          mainShellOverflowY:
+            mainShell instanceof HTMLElement ? window.getComputedStyle(mainShell).overflowY : null,
+          pageShellClientWidth: pageShell?.clientWidth ?? null,
+          pageShellScrollWidth: pageShell?.scrollWidth ?? null,
           visibleAgentPanels: visibleAttr('[data-agent-panel]', 'data-agent-panel'),
           visibleTeamPanels: visibleAttr('[data-team-panel]', 'data-team-panel'),
           workspaceTabs: visibleAttr('[data-workspace-tab]', 'data-workspace-tab'),
           bottomNavButtons: visibleText('nav button'),
+          mobileBottomNavVisible: visibleFlag('.ui-bottomnav-mobile'),
+          desktopBottomNavVisible: visibleFlag('.ui-bottomnav-desktop'),
+          mobileMenuButtonVisible: visibleFlag('[data-mobile-menu-button]'),
+          mobileMenuOpen: visibleFlag('[data-mobile-menu-sheet]'),
+          mobileMenuItems: visibleAttr('[data-mobile-menu-item]', 'data-mobile-menu-item'),
           docsManagerToggleVisible: visibleText('[data-docs-manager-toggle]').length > 0,
           docsProjectCardsVisible: visibleText('[data-docs-project-card]').length,
           calendarListVisible: visibleText('[data-calendar-list]').length > 0,
@@ -144,9 +161,9 @@ function AppInner() {
   }, [dispatch, pageOverride, state.currentPage]);
 
   return (
-    <div className="app-page-shell flex h-screen h-dvh min-h-dvh min-w-0 flex-col overflow-hidden">
+    <div className="app-root-shell app-page-shell flex min-h-0 min-w-0 flex-col overflow-hidden">
       <TopBar />
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      <main className="app-main-shell min-h-0 min-w-0 flex-1 overflow-hidden">
         {state.currentPage === 'A' && <PageA />}
         {state.currentPage === 'B' && <PageB />}
         {state.currentPage === 'C' && <PageC />}

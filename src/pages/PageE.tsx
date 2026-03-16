@@ -585,7 +585,7 @@ export function PageE() {
                 <span className="ui-label sm:invisible">Filters</span>
                 <button
                   data-prompts-filter-button
-                  className="ui-button text-neutral-700 sm:hidden"
+                  className="app-short-landscape-inline-flex ui-button text-neutral-700 sm:hidden"
                   onClick={() => setShowMobileFilters(true)}
                 >
                   Filter / Index
@@ -596,7 +596,7 @@ export function PageE() {
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 gap-3">
-          <div className="hidden sm:block">{filterSidebar}</div>
+          <div className="app-short-landscape-hide hidden sm:block">{filterSidebar}</div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="ui-surface mb-3 flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
@@ -693,7 +693,7 @@ export function PageE() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-2">
-        <div className="ui-surface flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
+        <div className="ui-surface app-short-landscape-flex flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
             Manager Panel
           </div>
@@ -706,16 +706,16 @@ export function PageE() {
         </div>
 
         {showManagerMobile && (
-          <div className="app-frame flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
+          <div className="app-frame app-short-landscape-flex flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
             <AgentPanel agent="manager" />
           </div>
         )}
 
-        <div className="app-frame flex min-h-0 flex-1 overflow-hidden sm:hidden">
+        <div className="app-frame app-short-landscape-flex flex min-h-0 flex-1 overflow-hidden sm:hidden">
           {promptsContent}
         </div>
 
-        <div className="app-frame hidden min-h-0 flex-1 overflow-hidden sm:flex">
+        <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
           <AgentPanel agent="manager" className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]" />
           <DividerRail />
           {promptsContent}
@@ -724,7 +724,7 @@ export function PageE() {
 
       {showMobileFilters && (
         <div
-          className="fixed inset-0 z-[160] bg-black/45 p-4 sm:hidden"
+          className="app-short-landscape-block fixed inset-0 z-[160] bg-black/45 p-4 sm:hidden"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setShowMobileFilters(false);

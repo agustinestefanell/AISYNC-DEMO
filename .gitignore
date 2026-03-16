@@ -3,3 +3,12 @@ dist/
 .env
 .vscode/
 .DS_Store
+
+# QA / Chrome temp
+.chrome-*/
+qa-mobile-shots/
+qa-*.json
+qa-*.log
+chrome-dom-test*.txt
+file-test-*.png
+qa-*.png

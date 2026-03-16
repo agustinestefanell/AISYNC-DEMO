@@ -287,11 +287,11 @@ export function PageF() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-2">
-        <div className="ui-surface scrollbar-thin flex items-center gap-1 overflow-x-auto p-1 lg:hidden">
+        <div className="ui-surface ui-workspace-tabs scrollbar-thin flex items-center gap-1 overflow-x-auto p-1 lg:hidden">
           {workers.map((worker) => (
             <button
               key={worker.id}
-              className={`min-h-10 shrink-0 rounded-[10px] px-3 text-xs font-medium ${
+              className={`ui-workspace-tab min-h-10 shrink-0 rounded-[10px] px-3 text-xs font-medium ${
                 activeWorker?.id === worker.id
                   ? 'bg-neutral-900 text-white'
                   : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'

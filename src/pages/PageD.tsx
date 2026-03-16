@@ -784,7 +784,7 @@ export function PageD() {
               </div>
             ))}
 
-          <div className="sm:hidden">
+          <div className="app-short-landscape-block sm:hidden">
             <button
               data-teams-outputs-toggle
               className={`ui-button w-full justify-between px-4 text-left text-sm ${
@@ -796,8 +796,8 @@ export function PageD() {
             </button>
           </div>
 
-          {showOutputsMobile && <div className="sm:hidden">{documentationTreesSection}</div>}
-          <div className="hidden sm:block">{documentationTreesSection}</div>
+          {showOutputsMobile && <div className="app-short-landscape-block sm:hidden">{documentationTreesSection}</div>}
+          <div className="app-short-landscape-hide hidden sm:block">{documentationTreesSection}</div>
         </section>
       </div>
     </div>
@@ -806,7 +806,7 @@ export function PageD() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-2">
-        <div className="ui-surface flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
+        <div className="ui-surface app-short-landscape-flex flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
             Manager Panel
           </div>
@@ -819,16 +819,16 @@ export function PageD() {
         </div>
 
         {showManagerMobile && (
-          <div className="app-frame flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
+          <div className="app-frame app-short-landscape-flex flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
             <AgentPanel agent="manager" />
           </div>
         )}
 
-        <div className="app-frame flex min-h-0 flex-1 overflow-hidden sm:hidden">
+        <div className="app-frame app-short-landscape-flex flex min-h-0 flex-1 overflow-hidden sm:hidden">
           {teamsContent}
         </div>
 
-        <div className="app-frame hidden min-h-0 flex-1 overflow-hidden sm:flex">
+        <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
           <AgentPanel agent="manager" className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]" />
           <DividerRail />
           {teamsContent}

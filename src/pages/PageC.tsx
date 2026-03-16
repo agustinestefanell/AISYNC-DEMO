@@ -146,7 +146,7 @@ export function PageC() {
               <div className="hidden lg:flex">{legendContent}</div>
             </div>
 
-            <div className="hidden flex-wrap gap-2 sm:flex lg:hidden">
+            <div className="app-short-landscape-hide hidden flex-wrap gap-2 sm:flex lg:hidden">
               <button
                 className={`ui-button px-3 text-xs ${
                   showLegendTablet ? 'ui-button-primary text-white' : 'text-neutral-700'
@@ -166,19 +166,19 @@ export function PageC() {
             </div>
 
             {showLegendTablet && (
-              <div className="ui-surface-subtle hidden px-3 py-2 sm:block lg:hidden">
+              <div className="app-short-landscape-hide ui-surface-subtle hidden px-3 py-2 sm:block lg:hidden">
                 {legendContent}
               </div>
             )}
 
             {showNotesTablet && (
-              <div className="ui-surface-subtle hidden px-3 py-2 text-[11px] text-neutral-600 sm:block lg:hidden">
+              <div className="app-short-landscape-hide ui-surface-subtle hidden px-3 py-2 text-[11px] text-neutral-600 sm:block lg:hidden">
                 Dense seed activity is scheduled between 09:00 and 17:00. Click any event to open the linked file.
               </div>
             )}
           </div>
 
-          <div className="grid gap-3 sm:hidden" data-calendar-list>
+          <div className="app-short-landscape-grid grid gap-3 sm:hidden" data-calendar-list>
             {mobileEventGroups.length > 0 ? (
               mobileEventGroups.map(([day, events]) => (
                 <div key={day} className="ui-surface-subtle px-3 py-3">
@@ -224,7 +224,7 @@ export function PageC() {
             )}
           </div>
 
-          <div className="hidden sm:block" data-calendar-grid>
+          <div className="app-short-landscape-hide hidden sm:block" data-calendar-grid>
             <div className="grid grid-cols-7 gap-1">
               {DAY_NAMES.map((name) => (
                 <div
@@ -293,7 +293,7 @@ export function PageC() {
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-2">
-        <div className="ui-surface flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
+        <div className="ui-surface app-short-landscape-flex flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
             Manager Panel
           </div>
@@ -306,16 +306,16 @@ export function PageC() {
         </div>
 
         {showManagerMobile && (
-          <div className="app-frame flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
+          <div className="app-frame app-short-landscape-flex flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
             <AgentPanel agent="manager" />
           </div>
         )}
 
-        <div className="app-frame flex min-h-0 flex-1 overflow-hidden sm:hidden">
+        <div className="app-frame app-short-landscape-flex flex min-h-0 flex-1 overflow-hidden sm:hidden">
           {calendarContent}
         </div>
 
-        <div className="app-frame hidden min-h-0 flex-1 overflow-hidden sm:flex">
+        <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
           <AgentPanel agent="manager" className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]" />
           <DividerRail />
           {calendarContent}
