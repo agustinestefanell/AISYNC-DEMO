@@ -13,6 +13,8 @@ type NavItem = {
 };
 
 const PAGE_ITEMS: NavItem[] = [
+  { key: 'D', label: 'Teams Map', shortLabel: 'Teams', page: 'D' },
+  { key: 'C', label: 'Audit Log', shortLabel: 'Log', page: 'C' },
   { key: 'A', label: 'Main Workspace', shortLabel: 'Main', page: 'A' },
   {
     key: 'cross_verification',
@@ -26,8 +28,6 @@ const PAGE_ITEMS: NavItem[] = [
     },
   },
   { key: 'B', label: 'Documentation Mode', shortLabel: 'Docs', page: 'B' },
-  { key: 'C', label: 'Audit Log', shortLabel: 'Log', page: 'C' },
-  { key: 'D', label: 'Teams Map', shortLabel: 'Teams', page: 'D' },
   { key: 'E', label: 'Prompts Library', shortLabel: 'Prompts', page: 'E' },
 ];
 
@@ -200,6 +200,22 @@ export function BottomNav() {
           }`}
         >
           <NavButton
+            label="Teams Map"
+            active={state.currentPage === 'D'}
+            onClick={() => navigateToPage('D')}
+          />
+
+          <span className="hidden text-white/20 lg:block">|</span>
+
+          <NavButton
+            label="Audit Log"
+            active={state.currentPage === 'C'}
+            onClick={() => navigateToPage('C')}
+          />
+
+          <span className="hidden text-white/20 lg:block">|</span>
+
+          <NavButton
             label="Main Workspace"
             active={state.currentPage === 'A'}
             onClick={() => navigateToPage('A')}
@@ -219,22 +235,6 @@ export function BottomNav() {
             label="Documentation Mode"
             active={state.currentPage === 'B'}
             onClick={() => navigateToPage('B')}
-          />
-
-          <span className="hidden text-white/20 lg:block">|</span>
-
-          <NavButton
-            label="Audit Log"
-            active={state.currentPage === 'C'}
-            onClick={() => navigateToPage('C')}
-          />
-
-          <span className="hidden text-white/20 lg:block">|</span>
-
-          <NavButton
-            label="Teams Map"
-            active={state.currentPage === 'D'}
-            onClick={() => navigateToPage('D')}
           />
 
           <span className="hidden text-white/20 lg:block">|</span>

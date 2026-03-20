@@ -65,7 +65,7 @@ interface PersistedState {
 
 function buildSeedState(): AppState {
   return {
-    currentPage: 'A',
+    currentPage: 'D',
     projectName: 'AISync Demo Project',
     userName: 'Agustin E.',
     messages: {

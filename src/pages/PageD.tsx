@@ -82,8 +82,11 @@ function CanvasViewport({
     });
   };
 
+  const clampZoom = (nextZoom: number) =>
+    Math.min(maxZoom, Math.max(minZoom, Number(nextZoom.toFixed(2))));
+
   const updateZoom = (nextZoom: number) => {
-    setZoom(Math.min(maxZoom, Math.max(minZoom, Number(nextZoom.toFixed(2)))));
+    setZoom(clampZoom(nextZoom));
   };
 
   const resetViewport = () => {
@@ -176,6 +179,11 @@ function CanvasViewport({
         }}
         onPointerUp={(event) => stopDragging(event.currentTarget, event.pointerId)}
         onPointerCancel={(event) => stopDragging(event.currentTarget, event.pointerId)}
+        onWheel={(event) => {
+          event.preventDefault();
+          const nextZoom = zoom + (event.deltaY < 0 ? 0.08 : -0.08);
+          setZoom(clampZoom(nextZoom));
+        }}
       >
         <div className="absolute inset-0 flex items-start justify-center p-2 sm:p-3">
           <div
@@ -583,19 +591,18 @@ function TreeOverviewView({
                         data-pan-block="true"
                         className="w-full rounded-full border px-4 py-3 text-center shadow-[var(--shadow-soft)] transition-transform hover:-translate-y-[1px]"
                         style={{
-                          borderColor: theme.border,
-                          backgroundColor: theme.soft,
-                          boxShadow: `inset 0 2px 0 ${theme.ribbon}`,
+                          borderColor: theme.ribbon,
+                          backgroundColor: theme.ribbon,
                         }}
                         onClick={() => onOpenWorkspace(unit)}
                       >
                         <div
                           className="text-[9px] uppercase tracking-[0.18em]"
-                          style={{ color: theme.accent }}
+                          style={{ color: 'rgba(255,255,255,0.72)' }}
                         >
                           Team Node
                         </div>
-                        <div className="mt-1 text-sm font-semibold text-neutral-900">{unit.label}</div>
+                        <div className="mt-1 text-sm font-semibold text-white">{unit.label}</div>
                       </button>
                       <button
                         data-pan-block="true"
@@ -617,7 +624,7 @@ function TreeOverviewView({
                               style={{
                                 gridTemplateColumns: `repeat(${Math.min(Math.max(visibleWorkers.length, 1), 3)}, minmax(0, 1fr))`,
                               }}
-                            >
+                              >
                               {visibleWorkers.map((worker) => (
                                 <div key={worker.id} className="flex flex-col items-center">
                                   <div className="h-3 w-px bg-neutral-900/55" />
@@ -625,9 +632,9 @@ function TreeOverviewView({
                                     data-pan-block="true"
                                     className="rounded-full border px-3 py-2 text-[10px] font-medium shadow-[var(--shadow-soft)] transition-transform hover:-translate-y-[1px]"
                                     style={{
-                                      borderColor: theme.border,
-                                      backgroundColor: theme.soft,
-                                      color: theme.accent,
+                                      borderColor: theme.ribbon,
+                                      backgroundColor: theme.ribbon,
+                                      color: '#ffffff',
                                     }}
                                     onClick={() => onOpenWorkspace(unit)}
                                   >
