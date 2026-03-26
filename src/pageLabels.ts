@@ -1,4 +1,4 @@
-import type { Page, SecondaryManagerPage } from './types';
+import type { DocumentationViewMode, Page, SecondaryManagerPage } from './types';
 
 export function getSecondarySubManagerLabel(page: SecondaryManagerPage) {
   if (page === 'B') return 'SM Documentation Mode';
@@ -39,4 +39,32 @@ export function getTopRibbonSectionLabel(page: Page, secondaryWorkspaceLabel?: s
   }
 
   return getPageLabel(page);
+}
+
+export function getDocumentationViewLabel(view: DocumentationViewMode) {
+  if (view === 'repository') return 'Repository View';
+  if (view === 'structure') return 'Structure View';
+  if (view === 'audit') return 'Audit View';
+  if (view === 'investigate') return 'Investigate View';
+  return 'Knowledge Map';
+}
+
+export function getDocumentationViewDescription(view: DocumentationViewMode) {
+  if (view === 'repository') {
+    return 'Primary production view for operating documentation, metadata, and retrieval.';
+  }
+
+  if (view === 'structure') {
+    return 'Hierarchy and provenance view based on the documentary mirror of Teams.';
+  }
+
+  if (view === 'audit') {
+    return 'Traceability view for reconstructing document movements, events, and responsibilities.';
+  }
+
+  if (view === 'investigate') {
+    return 'Contextual view for thematic investigation, chronology, and related document exploration.';
+  }
+
+  return 'Secondary analytical view for clusters, dependencies, and documentary gaps.';
 }

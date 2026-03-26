@@ -58,21 +58,38 @@ function getShouldUseCompactNav() {
 function NavButton({
   label,
   active,
-  onClick,
+  href,
+  onNavigate,
 }: {
   label: string;
   active?: boolean;
-  onClick: () => void;
+  href: string;
+  onNavigate: () => void;
 }) {
   return (
-    <button
+    <a
+      href={href}
       className={`ui-nav-button transition-colors ${
         active ? 'text-white' : 'text-white/78 hover:text-white'
       }`}
-      onClick={onClick}
+      onClick={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+        onNavigate();
+      }}
     >
       {label}
-    </button>
+    </a>
   );
 }
 
@@ -140,6 +157,23 @@ export function BottomNav() {
     state.currentPage === 'G' ||
     (state.currentPage === 'F' && state.secondaryWorkspace?.teamId === CROSS_VERIFICATION_TEAM_ID);
 
+  const buildPageHref = (page: Page) => {
+    if (typeof window === 'undefined') {
+      return `/?page=${page}`;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    url.searchParams.delete('doc_view');
+    url.searchParams.delete('doc_item');
+    url.searchParams.delete('doc_open');
+    url.searchParams.delete('doc_focus');
+    url.searchParams.delete('cv_launch');
+    url.searchParams.delete('audit_event');
+    url.searchParams.delete('team_workspace_launch');
+    return url.toString();
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -206,7 +240,8 @@ export function BottomNav() {
           <NavButton
             label="Teams Map"
             active={state.currentPage === 'D'}
-            onClick={() => navigateToPage('D')}
+            href={buildPageHref('D')}
+            onNavigate={() => navigateToPage('D')}
           />
 
           <span className="hidden text-white/20 lg:block">|</span>
@@ -214,7 +249,8 @@ export function BottomNav() {
           <NavButton
             label="Audit Log"
             active={state.currentPage === 'C'}
-            onClick={() => navigateToPage('C')}
+            href={buildPageHref('C')}
+            onNavigate={() => navigateToPage('C')}
           />
 
           <span className="hidden text-white/20 lg:block">|</span>
@@ -222,7 +258,8 @@ export function BottomNav() {
           <NavButton
             label="Main Workspace"
             active={state.currentPage === 'A'}
-            onClick={() => navigateToPage('A')}
+            href={buildPageHref('A')}
+            onNavigate={() => navigateToPage('A')}
           />
 
           <span className="hidden text-white/20 lg:block">|</span>
@@ -230,7 +267,8 @@ export function BottomNav() {
           <NavButton
             label="Cross Verification"
             active={isCrossVerificationActive}
-            onClick={navigateToCrossVerification}
+            href={buildPageHref('G')}
+            onNavigate={navigateToCrossVerification}
           />
 
           <span className="hidden text-white/20 lg:block">|</span>
@@ -238,7 +276,8 @@ export function BottomNav() {
           <NavButton
             label="Documentation Mode"
             active={state.currentPage === 'B'}
-            onClick={() => navigateToPage('B')}
+            href={buildPageHref('B')}
+            onNavigate={() => navigateToPage('B')}
           />
 
           <span className="hidden text-white/20 lg:block">|</span>
@@ -246,7 +285,8 @@ export function BottomNav() {
           <NavButton
             label="Prompts Library"
             active={state.currentPage === 'E'}
-            onClick={() => navigateToPage('E')}
+            href={buildPageHref('E')}
+            onNavigate={() => navigateToPage('E')}
           />
 
           {secondaryWorkspaceNavItem && (
@@ -255,7 +295,8 @@ export function BottomNav() {
               <NavButton
                 label="Secondary Workspace"
                 active={state.currentPage === 'F' && !isCrossVerificationActive}
-                onClick={() => navigateToPage('F')}
+                href={buildPageHref('F')}
+                onNavigate={() => navigateToPage('F')}
               />
             </>
           )}

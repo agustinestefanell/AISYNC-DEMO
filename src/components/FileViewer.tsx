@@ -1,10 +1,22 @@
 import type { SavedFile } from '../types';
-import { getWorkPhaseClassName, getWorkPhaseState } from '../phaseState';
+import { getWorkPhaseState } from '../phaseState';
 import { Modal } from './Modal';
+
+type FileViewerMetadata = {
+  documentType: string | null;
+  documentState: string | null;
+  documentVersion: string | null;
+  userLabel: string | null;
+  ownerLabel: string | null;
+  lastResponsible: string | null;
+  updatedAt: string | null;
+  latestReference: string | null;
+};
 
 interface FileViewerProps {
   file: SavedFile;
   projectName: string;
+  metadata?: FileViewerMetadata;
   onClose: () => void;
 }
 
@@ -20,9 +32,36 @@ function getAgentLabel(agent: SavedFile['agent']) {
   return 'Worker 2';
 }
 
-export function FileViewer({ file, projectName, onClose }: FileViewerProps) {
-  const createdAt = new Date(file.createdAt);
+function formatDateTime(value?: string | null) {
+  if (!value) return 'n/a';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })} ${date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+function getDocumentStateClassName(state: string) {
+  if (state === 'Approved') return 'ui-phase-pill ui-phase-pill-closed';
+  if (state === 'Locked') return 'ui-phase-pill bg-neutral-900 text-white';
+  if (state === 'Under Review') return 'ui-phase-pill ui-phase-pill-review';
+  return 'ui-phase-pill ui-phase-pill-open';
+}
+
+export function FileViewer({ file, projectName, metadata, onClose }: FileViewerProps) {
   const phaseState = getWorkPhaseState(file.phaseState);
+  const documentType = metadata?.documentType ?? file.type;
+  const documentState = metadata?.documentState ?? phaseState;
+  const userLabel = metadata?.userLabel ?? 'n/a';
+  const ownerLabel = metadata?.ownerLabel ?? file.sourceLabel ?? getAgentLabel(file.agent);
+  const lastResponsible = metadata?.lastResponsible ?? ownerLabel;
+  const updatedAt = metadata?.updatedAt ?? file.createdAt;
+  const latestReference = metadata?.latestReference ?? updatedAt;
 
   return (
     <Modal
@@ -30,7 +69,7 @@ export function FileViewer({ file, projectName, onClose }: FileViewerProps) {
       onClose={onClose}
       width="max-w-3xl"
     >
-      <div className="mb-5 grid gap-3 border-b border-neutral-200/80 pb-4 text-xs text-neutral-600 md:grid-cols-5">
+      <div className="mb-5 grid gap-3 border-b border-neutral-200/80 pb-4 text-xs text-neutral-600 md:grid-cols-3 xl:grid-cols-5">
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
             Project
@@ -39,39 +78,51 @@ export function FileViewer({ file, projectName, onClose }: FileViewerProps) {
         </div>
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
-            Source
+            Document Type
           </span>
-          <span className="font-medium text-neutral-900">
-            {file.sourceLabel ?? getAgentLabel(file.agent)}
-          </span>
+          <span className="font-medium text-neutral-900">{documentType}</span>
         </div>
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
-            Type
+            Document State
           </span>
-          <span className="font-medium text-neutral-900">{file.type}</span>
+          <span className={getDocumentStateClassName(documentState)}>{documentState}</span>
         </div>
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
-            State
+            Version
           </span>
-          <span className={getWorkPhaseClassName(phaseState)}>{phaseState}</span>
+          <span className="font-medium text-neutral-900">{metadata?.documentVersion ?? 'n/a'}</span>
         </div>
         <div>
           <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
-            Saved
+            USER
           </span>
-          <span className="font-medium text-neutral-900">
-            {createdAt.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}{' '}
-            {createdAt.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+          <span className="font-medium text-neutral-900">{userLabel}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
+            Owner
           </span>
+          <span className="font-medium text-neutral-900">{ownerLabel}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
+            Last Responsible
+          </span>
+          <span className="font-medium text-neutral-900">{lastResponsible}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
+            Updated
+          </span>
+          <span className="font-medium text-neutral-900">{formatDateTime(updatedAt)}</span>
+        </div>
+        <div>
+          <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
+            Latest Reference
+          </span>
+          <span className="font-medium text-neutral-900">{formatDateTime(latestReference)}</span>
         </div>
       </div>
 

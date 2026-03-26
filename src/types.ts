@@ -16,9 +16,21 @@ export type DocumentationOriginWorkspace =
   | 'documentation-mode'
   | 'audit-log'
   | 'cross-verification';
+export type DocumentationViewMode =
+  | 'repository'
+  | 'structure'
+  | 'audit'
+  | 'investigate'
+  | 'knowledge-map';
 export type DocumentationManifestStatus = 'active' | 'archived' | 'promoted';
 export type DocumentationRecordClass = 'team-record' | 'agent-record' | 'working-record';
 export type DocumentationSensitivityLevel = 'internal' | 'confidential' | 'restricted';
+export type DocumentationDocumentState =
+  | 'Draft'
+  | 'In Progress'
+  | 'Under Review'
+  | 'Approved'
+  | 'Locked';
 export type ReviewForwardSourceKind =
   | 'general-manager'
   | 'main-worker'
@@ -76,6 +88,13 @@ export interface DocumentationRepositoryRoot {
   path: string;
   selectedByUser: boolean;
   updatedAt: string;
+}
+
+export interface DocumentationViewDefinition {
+  mode: DocumentationViewMode;
+  label: string;
+  description: string;
+  productRole: 'primary' | 'supporting' | 'secondary';
 }
 
 export interface DocumentationTeamFolder {
@@ -158,13 +177,119 @@ export interface DocumentationIndexEntry {
   relatedFileId?: string;
 }
 
+export type DocumentationAuditEventKind =
+  | 'created'
+  | 'updated'
+  | 'state-changed'
+  | 'locked'
+  | 'unlocked'
+  | 'version-advanced';
+export type DocumentationKnowledgeNodeType =
+  | 'document'
+  | 'project'
+  | 'team'
+  | 'workspace'
+  | 'document-type';
+export type DocumentationKnowledgeEdgeType =
+  | 'belongs-to'
+  | 'created-in'
+  | 'linked-to-team'
+  | 'linked-to-workspace'
+  | 'typed-as'
+  | 'linked-to-audit';
+
+export interface DocumentationAuditEntry {
+  id: string;
+  repositoryItemId: string;
+  documentTitle: string;
+  eventKind: DocumentationAuditEventKind;
+  eventLabel: string;
+  teamId: string;
+  teamLabel: string;
+  projectLabel: string | null;
+  documentKind: string | null;
+  userLabel: string | null;
+  responsibleLabel: string | null;
+  occurredAt: string | null;
+  documentState: DocumentationDocumentState | null;
+  documentVersion: string | null;
+  sourceWorkspace: DocumentationOriginWorkspace;
+  recordClass: string;
+  path: string;
+  auditEventIds: string[];
+  relatedFileId?: string;
+}
+
+export interface DocumentationKnowledgeNode {
+  id: string;
+  nodeType: DocumentationKnowledgeNodeType;
+  label: string;
+  description: string | null;
+  repositoryItemId: string | null;
+  projectLabel: string | null;
+  teamId: string | null;
+  teamLabel: string | null;
+  workspaceLabel: string | null;
+  documentKind: string | null;
+  documentState: DocumentationDocumentState | null;
+  documentVersion: string | null;
+  userLabel: string | null;
+  lastResponsible: string | null;
+  updatedAt: string | null;
+  auditLinked: boolean;
+  relatedFileId?: string;
+}
+
+export interface DocumentationKnowledgeEdge {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  edgeType: DocumentationKnowledgeEdgeType;
+  label: string;
+}
+
+export interface DocumentationRepositoryItem {
+  id: string;
+  itemType: 'team-folder' | 'agent-unit' | 'file' | 'workspace-agent';
+  title: string;
+  teamId: string;
+  teamLabel: string;
+  projectLabel: string | null;
+  documentKind: string | null;
+  userLabel: string | null;
+  ownerLabel: string | null;
+  ownerRole: string | null;
+  status: string;
+  updatedAt: string | null;
+  recordClass: string;
+  path: string;
+  sourceWorkspace: DocumentationOriginWorkspace;
+  sourceConversationLabel: string | null;
+  auditEventIds: string[];
+  versionCount: number | null;
+  lockState: boolean | null;
+  checkpointLabel: string | null;
+  documentState: DocumentationDocumentState | null;
+  documentVersion: string | null;
+  lastResponsible: string | null;
+  relatedFileId?: string;
+}
+
 export interface DocumentationModeModel {
   root: DocumentationRepositoryRoot;
+  views: DocumentationViewDefinition[];
+  primaryView: DocumentationViewMode;
   teamFolders: DocumentationTeamFolder[];
   agentUnits: DocumentationAgentUnit[];
   teamManifests: DocumentationTeamManifest[];
   agentManifests: DocumentationAgentManifest[];
   indexEntries: DocumentationIndexEntry[];
+  repositoryItems: DocumentationRepositoryItem[];
+  auditEntries: DocumentationAuditEntry[];
+  knowledgeMap: {
+    nodes: DocumentationKnowledgeNode[];
+    edges: DocumentationKnowledgeEdge[];
+  };
   compatibility: {
     auditLog: true;
     calendarMode: true;
