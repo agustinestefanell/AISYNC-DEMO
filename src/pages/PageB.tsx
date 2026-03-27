@@ -473,6 +473,18 @@ const KNOWLEDGE_FOCUS_MODE_OPTIONS: Array<{ value: KnowledgeFocusMode; label: st
   { value: 'document-types', label: 'Document Types' },
 ];
 
+const KNOWLEDGE_GRAPH_TARGET = {
+  centerStrength: 0.32,
+  repelStrength: 12,
+  linkStrength: 0.5,
+  linkDistance: 140,
+  nodeSizeMultiplier: 1.1,
+  lineSizeMultiplier: 0.9,
+  textFadeMultiplier: -1.8,
+  showArrow: false,
+  scale: 0.55,
+} as const;
+
 type InvestigationThread = {
   repositoryItemId: string;
   title: string;
@@ -2208,47 +2220,18 @@ export function PageB() {
         </div>
       </div>
     ) : (
-      <div className="grid gap-4 sm:gap-6">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <DocumentationStatCard
-            label="Visible Docs"
-            value={String(knowledgeFilteredDocumentNodes.length)}
-            meta="Controlled document slice currently rendered inside the relational map."
-          />
-          <DocumentationStatCard
-            label="Visible Nodes"
-            value={String(knowledgeGraph.nodes.length)}
-            meta="Documents plus contextual nodes derived from the same documentary base."
-          />
-          <DocumentationStatCard
-            label="Visible Relations"
-            value={String(knowledgeGraph.edges.length)}
-            meta="Real links currently shown between document, project, team, workspace, and type."
-          />
-          <DocumentationStatCard
-            label="Audit-linked Docs"
-            value={String(knowledgeFilteredDocumentNodes.filter((node) => node.auditLinked).length)}
-            meta="Documents in the visible slice already carrying documentary audit linkage."
-          />
-        </div>
-
-        <div className="ui-surface rounded-[22px] px-4 py-4 sm:px-5">
-          <div className="mb-3 grid gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="text-sm font-semibold tracking-[0.08em] text-neutral-900">
-                Knowledge Map
-              </div>
-              <div className="h-px min-w-[48px] flex-1 bg-neutral-200" />
-            </div>
-            <div className="grid gap-1">
+      <div className="grid h-full min-h-0 gap-3">
+        <div className="ui-surface h-full overflow-hidden rounded-[22px] px-4 py-4 sm:px-5">
+          <div className="mb-2 grid h-full min-h-0 gap-4 xl:grid-cols-[270px_minmax(0,1fr)] xl:items-start">
+            <div className="grid gap-2 rounded-[20px] border border-neutral-200 bg-white/70 px-3 py-3 xl:col-start-1 xl:row-start-1">
               <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
                 Graph Focus Modes
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-2">
                 {KNOWLEDGE_FOCUS_MODE_OPTIONS.map((mode) => (
                   <button
                     key={mode.value}
-                    className={`ui-button min-h-8 px-3 text-[11px] ${
+                    className={`ui-button min-h-8 justify-start px-3 text-[11px] ${
                       knowledgeFocusMode === mode.value ? 'ui-button-primary text-white' : 'text-neutral-700'
                     }`}
                     onClick={() => setKnowledgeFocusMode(mode.value)}
@@ -2258,12 +2241,9 @@ export function PageB() {
                 ))}
               </div>
             </div>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="grid gap-3 xl:grid-cols-[repeat(4,minmax(0,1fr))]">
+            <div className="grid gap-3 rounded-[20px] border border-neutral-200 bg-white/70 px-3 py-3 xl:col-start-1 xl:row-start-2">
               <label className="grid gap-1">
-                <span className="ui-label">Project focus</span>
+                <span className="ui-label">Project</span>
                 <select
                   className="ui-input text-xs"
                   value={knowledgeProjectFilter || 'all'}
@@ -2325,12 +2305,7 @@ export function PageB() {
                   ))}
                 </select>
               </label>
-            </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 pt-3">
-              <div className="text-xs text-neutral-600">
-                Knowledge Map keeps one canvas and one documentary base, while the focus mode changes which relations are emphasized.
-              </div>
               <button
                 className="ui-button min-h-8 px-3 text-[11px] text-neutral-700"
                 onClick={() => {
@@ -2345,7 +2320,13 @@ export function PageB() {
               </button>
             </div>
 
-            <div className="grid gap-4">
+            <div className="rounded-[16px] border border-neutral-200 bg-white/75 px-3 py-2 xl:col-start-1 xl:row-start-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                {knowledgeFilteredDocumentNodes.length} docs · {knowledgeGraph.nodes.length} nodes · {knowledgeGraph.edges.length} relations
+              </div>
+            </div>
+
+            <div className="grid min-w-0 min-h-0 gap-2 xl:col-start-2 xl:row-start-1 xl:row-span-3">
               <KnowledgeMapCanvas
                 nodes={knowledgeGraph.nodes}
                 edges={knowledgeGraph.edges}
@@ -2422,21 +2403,26 @@ export function PageB() {
               })}
             </div>
 
-            <div className="ui-surface-subtle rounded-[18px] px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                <span>{activeViewDefinition?.productRole === 'primary' ? 'Primary production view' : activeViewDefinition?.productRole === 'secondary' ? 'Secondary analytical view' : 'Supporting production view'}</span>
-                <span className="text-neutral-300">|</span>
-                <span>{activeViewDefinition?.label ?? getDocumentationViewLabel(activeView)}</span>
+            {activeView === 'knowledge-map' ? null : (
+              <div className="ui-surface-subtle rounded-[18px] px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  <span>{activeViewDefinition?.productRole === 'primary' ? 'Primary production view' : activeViewDefinition?.productRole === 'secondary' ? 'Secondary analytical view' : 'Supporting production view'}</span>
+                  <span className="text-neutral-300">|</span>
+                  <span>{activeViewDefinition?.label ?? getDocumentationViewLabel(activeView)}</span>
+                </div>
+                <div className="mt-2 text-xs leading-[1.45] text-neutral-700">
+                  {activeViewDefinition?.description ?? getDocumentationViewDescription(activeView)}
+                </div>
               </div>
-              <div className="mt-2 text-xs leading-[1.5] text-neutral-700">
-                {activeViewDefinition?.description ?? getDocumentationViewDescription(activeView)}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-3 sm:px-3 sm:pb-4" style={{ minHeight: 0 }}>
+      <div
+        className={`scrollbar-thin flex-1 px-2 pb-3 sm:px-3 sm:pb-4 ${activeView === 'knowledge-map' ? 'overflow-hidden' : 'overflow-y-auto'}`}
+        style={{ minHeight: 0 }}
+      >
         {documentationViewContent}
       </div>
     </div>
@@ -2673,21 +2659,21 @@ function InvestigationThreadCard({
 }
 
 function getKnowledgeNodeClasses(nodeType: KnowledgeGraphNode['nodeType']) {
-  if (nodeType === 'document') return 'fill-white stroke-neutral-300';
-  if (nodeType === 'project') return 'fill-sky-50 stroke-sky-200';
-  if (nodeType === 'team') return 'fill-amber-50 stroke-amber-200';
-  if (nodeType === 'workspace') return 'fill-emerald-50 stroke-emerald-200';
-  if (nodeType === 'user') return 'fill-rose-50 stroke-rose-200';
-  if (nodeType === 'folder') return 'fill-stone-100 stroke-stone-300';
-  if (nodeType === 'saved-file') return 'fill-cyan-50 stroke-cyan-200';
-  return 'fill-violet-50 stroke-violet-200';
+  if (nodeType === 'document') return 'fill-slate-100 stroke-slate-100';
+  if (nodeType === 'project') return 'fill-sky-300 stroke-sky-200';
+  if (nodeType === 'team') return 'fill-amber-300 stroke-amber-200';
+  if (nodeType === 'workspace') return 'fill-emerald-300 stroke-emerald-200';
+  if (nodeType === 'user') return 'fill-rose-300 stroke-rose-200';
+  if (nodeType === 'folder') return 'fill-stone-300 stroke-stone-200';
+  if (nodeType === 'saved-file') return 'fill-cyan-300 stroke-cyan-200';
+  return 'fill-violet-300 stroke-violet-200';
 }
 
 function getKnowledgeEdgeStroke(edgeType: DocumentationKnowledgeEdge['edgeType']) {
-  if (edgeType === 'belongs-to') return '#0f172a';
-  if (edgeType === 'linked-to-team') return '#d97706';
-  if (edgeType === 'created-in') return '#0f766e';
-  return '#6d28d9';
+  if (edgeType === 'belongs-to') return '#94a3b8';
+  if (edgeType === 'linked-to-team') return '#f59e0b';
+  if (edgeType === 'created-in') return '#14b8a6';
+  return '#c084fc';
 }
 
 function getKnowledgeNodeMeta(node: KnowledgeGraphNode) {
@@ -2702,6 +2688,11 @@ function getKnowledgeNodeMeta(node: KnowledgeGraphNode) {
   return 'Document type';
 }
 
+function getKnowledgeLabelOpacity(scale: number) {
+  const faded = 1 + (scale - KNOWLEDGE_GRAPH_TARGET.scale) * KNOWLEDGE_GRAPH_TARGET.textFadeMultiplier;
+  return Math.max(0.62, Math.min(1, faded));
+}
+
 function getKnowledgeNodeJitter(seed: string) {
   let hash = 0;
   for (let index = 0; index < seed.length; index += 1) {
@@ -2712,6 +2703,94 @@ function getKnowledgeNodeJitter(seed: string) {
     x: (hash % 27) - 13,
     y: ((Math.floor(hash / 27) % 23) - 11),
   };
+}
+
+function relaxKnowledgeGraphLayout({
+  nodes,
+  edges,
+  positions,
+  width,
+  height,
+}: {
+  nodes: KnowledgeGraphNode[];
+  edges: DocumentationKnowledgeEdge[];
+  positions: Map<string, { x: number; y: number }>;
+  width: number;
+  height: number;
+}) {
+  const working = new Map<string, { x: number; y: number }>();
+  positions.forEach((position, id) => {
+    working.set(id, { ...position });
+  });
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  for (let iteration = 0; iteration < 40; iteration += 1) {
+    const nextForces = new Map<string, { x: number; y: number }>();
+    nodes.forEach((node) => nextForces.set(node.id, { x: 0, y: 0 }));
+
+    for (let index = 0; index < nodes.length; index += 1) {
+      const left = nodes[index];
+      const leftPosition = working.get(left.id);
+      if (!leftPosition) continue;
+
+      for (let inner = index + 1; inner < nodes.length; inner += 1) {
+        const right = nodes[inner];
+        const rightPosition = working.get(right.id);
+        if (!rightPosition) continue;
+
+        const dx = leftPosition.x - rightPosition.x;
+        const dy = leftPosition.y - rightPosition.y;
+        const distance = Math.max(18, Math.hypot(dx, dy));
+        const repelForce = KNOWLEDGE_GRAPH_TARGET.repelStrength / distance;
+        const normalizedX = dx / distance;
+        const normalizedY = dy / distance;
+        const leftForce = nextForces.get(left.id);
+        const rightForce = nextForces.get(right.id);
+        if (!leftForce || !rightForce) continue;
+        leftForce.x += normalizedX * repelForce;
+        leftForce.y += normalizedY * repelForce;
+        rightForce.x -= normalizedX * repelForce;
+        rightForce.y -= normalizedY * repelForce;
+      }
+    }
+
+    edges.forEach((edge) => {
+      const source = working.get(edge.sourceId);
+      const target = working.get(edge.targetId);
+      if (!source || !target) return;
+
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const delta = distance - KNOWLEDGE_GRAPH_TARGET.linkDistance;
+      const pull = delta * KNOWLEDGE_GRAPH_TARGET.linkStrength * 0.01;
+      const normalizedX = dx / distance;
+      const normalizedY = dy / distance;
+      const sourceForce = nextForces.get(edge.sourceId);
+      const targetForce = nextForces.get(edge.targetId);
+      if (!sourceForce || !targetForce) return;
+      sourceForce.x += normalizedX * pull;
+      sourceForce.y += normalizedY * pull;
+      targetForce.x -= normalizedX * pull;
+      targetForce.y -= normalizedY * pull;
+    });
+
+    nodes.forEach((node) => {
+      const position = working.get(node.id);
+      const force = nextForces.get(node.id);
+      if (!position || !force) return;
+
+      force.x += (centerX - position.x) * KNOWLEDGE_GRAPH_TARGET.centerStrength * 0.01;
+      force.y += (centerY - position.y) * KNOWLEDGE_GRAPH_TARGET.centerStrength * 0.01;
+
+      position.x = Math.min(width - 52, Math.max(52, position.x + force.x));
+      position.y = Math.min(height - 52, Math.max(52, position.y + force.y));
+    });
+  }
+
+  return working;
 }
 
 function KnowledgeMapCanvas({
@@ -2772,35 +2851,57 @@ function KnowledgeMapCanvas({
       maxRows = Math.max(maxRows, columnNodes.length);
       columnNodes.forEach((node, rowIndex) => {
         const jitter = getKnowledgeNodeJitter(node.id);
-        const verticalWave = ((rowIndex + columnIndex) % 2 === 0 ? -1 : 1) * 8;
+        const verticalWave = ((rowIndex + columnIndex) % 2 === 0 ? -1 : 1) * 5;
         positions.set(node.id, {
-          x: 92 + columnIndex * 172 + jitter.x,
-          y: 86 + rowIndex * 92 + verticalWave + jitter.y,
+          x: 96 + columnIndex * 132 + jitter.x * 0.38,
+          y: 76 + rowIndex * 62 + verticalWave + jitter.y * 0.42,
         });
       });
     });
 
     return {
       positions,
-      width: 900,
-      height: Math.max(400, maxRows * 92 + 120),
+      width: 1000,
+      height: Math.max(420, maxRows * 62 + 120),
     };
   }, [nodes]);
+  const forceLayout = useMemo(() => {
+    const relaxed = relaxKnowledgeGraphLayout({
+      nodes,
+      edges,
+      positions: baseLayout.positions,
+      width: baseLayout.width,
+      height: baseLayout.height,
+    });
+    const blended = new Map<string, { x: number; y: number }>();
+    baseLayout.positions.forEach((seed, id) => {
+      const resolved = relaxed.get(id) ?? seed;
+      blended.set(id, {
+        x: seed.x * 0.74 + resolved.x * 0.26,
+        y: seed.y * 0.78 + resolved.y * 0.22,
+      });
+    });
+    return blended;
+  }, [baseLayout.height, baseLayout.positions, baseLayout.width, edges, nodes]);
   const [nodePositions, setNodePositions] = useState<Map<string, { x: number; y: number }>>(
-    () => new Map(baseLayout.positions),
+    () => new Map(forceLayout),
   );
-  const [viewport, setViewport] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
+  const [viewport, setViewport] = useState<{ scale: number; offsetX: number; offsetY: number }>({
+    scale: KNOWLEDGE_GRAPH_TARGET.scale,
+    offsetX: 34,
+    offsetY: 28,
+  });
   const selectedNodeId = selectedNode?.id ?? null;
 
   useEffect(() => {
     setNodePositions((current) => {
       const next = new Map<string, { x: number; y: number }>();
-      baseLayout.positions.forEach((position, id) => {
+      forceLayout.forEach((position, id) => {
         next.set(id, current.get(id) ?? position);
       });
       return next;
     });
-  }, [baseLayout.positions]);
+  }, [forceLayout]);
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -2815,7 +2916,7 @@ function KnowledgeMapCanvas({
     const zoomDelta = event.deltaY > 0 ? -0.08 : 0.08;
 
     setViewport((current) => {
-      const nextScale = Math.min(2.2, Math.max(0.6, Number((current.scale + zoomDelta).toFixed(2))));
+      const nextScale = Math.min(2.2, Math.max(0.35, Number((current.scale + zoomDelta).toFixed(2))));
       if (nextScale === current.scale) {
         return current;
       }
@@ -2832,10 +2933,11 @@ function KnowledgeMapCanvas({
   };
 
   const handleViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
+    if (event.button !== 0 && event.button !== 1) {
       return;
     }
 
+    event.preventDefault();
     const target = event.target as HTMLElement;
     if (target.closest('[data-knowledge-node="true"]') || target.closest('[data-knowledge-map-action="true"]')) {
       return;
@@ -2896,7 +2998,7 @@ function KnowledgeMapCanvas({
 
     event.stopPropagation();
     onSelectNode(node.id);
-    const position = nodePositions.get(node.id) ?? baseLayout.positions.get(node.id);
+    const position = nodePositions.get(node.id) ?? forceLayout.get(node.id) ?? baseLayout.positions.get(node.id);
     if (!position) {
       return;
     }
@@ -2916,7 +3018,7 @@ function KnowledgeMapCanvas({
   return (
     <div
       ref={viewportRef}
-      className="ui-surface-subtle relative min-h-[560px] overflow-hidden rounded-[22px] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.16),transparent_32%),linear-gradient(180deg,#fafaf9_0%,#f5f5f4_100%)] px-2 py-2"
+      className="ui-surface-subtle relative min-h-[500px] overflow-hidden rounded-[22px] bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.12),transparent_24%),linear-gradient(180deg,#0f172a_0%,#111827_100%)] px-1.5 py-1.5"
       onWheel={handleWheel}
       onPointerDown={handleViewportPointerDown}
       onPointerMove={handleViewportPointerMove}
@@ -2924,31 +3026,31 @@ function KnowledgeMapCanvas({
       onPointerCancel={clearPointerState}
       onPointerLeave={clearPointerState}
     >
-      <div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex items-start justify-between gap-3">
-        <div className="max-w-[420px] rounded-full border border-neutral-200/80 bg-white/90 px-3 py-2 text-[11px] leading-[1.45] text-neutral-600 shadow-sm backdrop-blur">
-          Wheel to zoom. Drag empty space to pan. Drag any node to reorganize the constellation.
+      <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3">
+        <div className="max-w-[340px] rounded-full border border-slate-700/70 bg-slate-950/58 px-2.5 py-1.5 text-[10px] leading-[1.35] text-slate-300 shadow-sm backdrop-blur">
+          Wheel zoom · drag space to pan · drag node to reposition
         </div>
-        <div className="rounded-full border border-neutral-200/80 bg-white/90 px-3 py-2 text-[11px] font-medium text-neutral-600 shadow-sm backdrop-blur">
+        <div className="rounded-full border border-slate-700/70 bg-slate-950/58 px-2.5 py-1.5 text-[10px] font-medium text-slate-300 shadow-sm backdrop-blur">
           Scale {viewport.scale.toFixed(2)}x
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-[460px] rounded-[18px] border border-neutral-200/80 bg-white/92 px-4 py-3 shadow-sm backdrop-blur">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-[460px] rounded-[18px] border border-slate-700/70 bg-slate-950/74 px-4 py-3 shadow-sm backdrop-blur">
         {selectedNode ? (
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-600">
+              <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300">
                 {selectedNode.nodeType.replace('-', ' ')}
               </span>
-              <span className="text-xs text-neutral-500">{connectionCount} visible connection(s)</span>
+              <span className="text-xs text-slate-400">{connectionCount} visible connection(s)</span>
             </div>
-            <div className="text-sm font-semibold text-neutral-900">{selectedNode.label}</div>
-            <div className="text-xs leading-[1.5] text-neutral-600">
+            <div className="text-sm font-semibold text-slate-100">{selectedNode.label}</div>
+            <div className="text-xs leading-[1.5] text-slate-300">
               {[selectedNode.projectLabel, selectedNode.teamLabel, selectedNode.workspaceLabel]
                 .filter((value): value is string => Boolean(value))
                 .join(' · ') || selectedNode.description || 'No contextual metadata'}
             </div>
-            <div className="flex flex-wrap gap-2 text-[11px] text-neutral-600">
+            <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
               {selectedNode.documentState ? <span>State: {selectedNode.documentState}</span> : null}
               {selectedNode.documentVersion ? <span>Version: {selectedNode.documentVersion}</span> : null}
               {selectedNode.userLabel ? <span>USER: {selectedNode.userLabel}</span> : null}
@@ -2976,7 +3078,7 @@ function KnowledgeMapCanvas({
             </div>
           </div>
         ) : (
-          <div className="text-xs text-neutral-600">Select a node to inspect its documentary context.</div>
+          <div className="text-xs text-slate-300">Select a node to inspect its documentary context.</div>
         )}
       </div>
 
@@ -2984,7 +3086,7 @@ function KnowledgeMapCanvas({
         width="100%"
         height="100%"
         viewBox={`0 0 ${baseLayout.width} ${baseLayout.height}`}
-        className="min-h-[500px] w-full"
+        className="min-h-[460px] w-full"
       >
         <g transform={`translate(${viewport.offsetX} ${viewport.offsetY}) scale(${viewport.scale})`}>
           {edges.map((edge) => {
@@ -3001,14 +3103,15 @@ function KnowledgeMapCanvas({
                   x2={target.x}
                   y2={target.y}
                   stroke={getKnowledgeEdgeStroke(edge.edgeType)}
-                  strokeWidth="1.2"
-                  opacity="0.34"
+                  strokeWidth={KNOWLEDGE_GRAPH_TARGET.lineSizeMultiplier}
+                  opacity="0.42"
                 />
                 <text
                   x={(source.x + target.x) / 2}
                   y={(source.y + target.y) / 2 - 6}
                   textAnchor="middle"
-                  className="fill-neutral-400 text-[8px] uppercase tracking-[0.12em]"
+                  className="fill-slate-400 text-[8px] uppercase tracking-[0.12em]"
+                  opacity={Math.max(0.44, getKnowledgeLabelOpacity(viewport.scale) - 0.18)}
                 >
                   {edge.label}
                 </text>
@@ -3022,7 +3125,8 @@ function KnowledgeMapCanvas({
               return null;
             }
             const isSelected = node.id === selectedNodeId;
-            const radius = node.nodeType === 'document' || node.nodeType === 'saved-file' ? 18 : 14;
+            const baseRadius = node.nodeType === 'document' || node.nodeType === 'saved-file' ? 3 : 2;
+            const radius = baseRadius * KNOWLEDGE_GRAPH_TARGET.nodeSizeMultiplier;
             return (
               <g
                 key={node.id}
@@ -3036,13 +3140,13 @@ function KnowledgeMapCanvas({
                   cy="0"
                   r={radius}
                   className={`${getKnowledgeNodeClasses(node.nodeType)} ${isSelected ? 'stroke-[var(--color-accent)]' : ''}`}
-                  strokeWidth={isSelected ? 2.5 : 1.4}
+                  strokeWidth={isSelected ? 1.8 : 1.05}
                 />
-                {node.auditLinked ? <circle cx={radius - 3} cy={-radius + 4} r="3" className="fill-neutral-900" /> : null}
-                <text x="0" y={radius + 16} textAnchor="middle" className="fill-neutral-900 text-[11px] font-semibold">
+                {node.auditLinked ? <circle cx={radius - 2} cy={-radius + 3} r="2" className="fill-slate-950" /> : null}
+                <text x="0" y={radius + 13} textAnchor="middle" className="fill-slate-100 text-[9px] font-semibold" opacity={getKnowledgeLabelOpacity(viewport.scale)}>
                   {node.label.length > 22 ? `${node.label.slice(0, 22)}…` : node.label}
                 </text>
-                <text x="0" y={radius + 28} textAnchor="middle" className="fill-neutral-500 text-[8px] uppercase tracking-[0.12em]">
+                <text x="0" y={radius + 21} textAnchor="middle" className="fill-slate-400 text-[6px] uppercase tracking-[0.12em]" opacity={Math.max(0.5, getKnowledgeLabelOpacity(viewport.scale) - 0.18)}>
                   {getKnowledgeNodeMeta(node)}
                 </text>
               </g>
