@@ -1,5 +1,5 @@
 import { GENERAL_MANAGER_LABEL } from './context';
-import { getInitialTeamsMapState, getTopLevelUnits } from './data/teams';
+import { CROSS_VERIFICATION_TEAM_ID, getInitialTeamsMapState, getNodeById, getTopLevelUnits } from './data/teams';
 import type {
   AgentRole,
   AuditAnswerPayload,
@@ -7,6 +7,7 @@ import type {
   Page,
   ReviewForwardSourceKind,
   ReviewForwardTargetOption,
+  TeamsGraphNode,
 } from './types';
 
 function dedupeReviewTargets(targets: ReviewForwardTargetOption[]) {
@@ -32,6 +33,10 @@ function buildGeneralManagerTarget(): ReviewForwardTargetOption {
   };
 }
 
+function getLiveTeamsGraph(teamsGraph?: TeamsGraphNode[]) {
+  return teamsGraph ?? getInitialTeamsMapState().teamsGraph;
+}
+
 function buildGeneralManagerAuditRoutingTarget(page: Page = 'A'): AuditAnswerRoutingTarget {
   return {
     id: 'main_workspace:manager',
@@ -45,22 +50,73 @@ function buildGeneralManagerAuditRoutingTarget(page: Page = 'A'): AuditAnswerRou
   };
 }
 
-function getSystemSubManagerTargets(): ReviewForwardTargetOption[] {
-  const { teamsGraph } = getInitialTeamsMapState();
+function getSystemSubManagerTargets(teamsGraph?: TeamsGraphNode[]): ReviewForwardTargetOption[] {
+  const liveTeamsGraph = getLiveTeamsGraph(teamsGraph);
 
-  return getTopLevelUnits(teamsGraph)
-    .filter((node) => node.type === 'senior_manager')
+  return getTopLevelUnits(liveTeamsGraph)
+    .filter((node) => node.type === 'senior_manager' && node.teamId !== CROSS_VERIFICATION_TEAM_ID)
     .map((node) => ({
       id: `team:${node.teamId}:sub-manager`,
       label: `${node.label} Sub-Manager`,
       kind: 'team-sub-manager' as const,
       teamId: node.teamId,
+      nodeId: node.id,
     }));
+}
+
+function getDirectWorkerTargets(parentNodeId: string, teamsGraph: TeamsGraphNode[]) {
+  return teamsGraph
+    .filter((node) => node.parentId === parentNodeId && node.type === 'worker')
+    .map((worker) => ({
+      id: worker.id,
+      label: worker.label,
+      kind: 'team-worker' as const,
+      workerId: worker.id,
+      teamId: worker.teamId,
+      nodeId: worker.id,
+    }));
+}
+
+function collectDescendantSubManagerTargets(parentNodeId: string, teamsGraph: TeamsGraphNode[]): ReviewForwardTargetOption[] {
+  const directChildren = teamsGraph.filter(
+    (node) =>
+      node.parentId === parentNodeId &&
+      node.type === 'senior_manager' &&
+      node.teamId !== CROSS_VERIFICATION_TEAM_ID,
+  );
+
+  return directChildren.flatMap((node) => [
+    {
+      id: `team:${node.teamId}:${node.id}:sub-manager`,
+      label: `${node.label} Sub-Manager`,
+      kind: 'team-sub-manager' as const,
+      teamId: node.teamId,
+      nodeId: node.id,
+    },
+    ...collectDescendantSubManagerTargets(node.id, teamsGraph),
+  ]);
+}
+
+function getNearestSubManagerAncestor(node: TeamsGraphNode, teamsGraph: TeamsGraphNode[]) {
+  let currentParentId = node.parentId;
+  while (currentParentId) {
+    const parent = getNodeById(teamsGraph, currentParentId);
+    if (!parent) {
+      return null;
+    }
+    if (parent.type === 'senior_manager') {
+      return parent;
+    }
+    currentParentId = parent.parentId;
+  }
+
+  return null;
 }
 
 export function getAgentPanelForwardTargets(
   agent: AgentRole,
   managerDisplayName?: string,
+  teamsGraph?: TeamsGraphNode[],
 ): ReviewForwardTargetOption[] {
   if (agent === 'manager') {
     const isSecondaryPageSubManager =
@@ -83,53 +139,131 @@ export function getAgentPanelForwardTargets(
         kind: 'main-worker',
         agentRole: 'worker2',
       },
-      ...getSystemSubManagerTargets(),
+      ...getSystemSubManagerTargets(teamsGraph),
     ]);
   }
 
-  return [buildGeneralManagerTarget()];
+  return dedupeReviewTargets([
+    buildGeneralManagerTarget(),
+    ...(agent === 'worker1'
+      ? [
+          {
+            id: 'worker2',
+            label: 'Worker 2',
+            kind: 'main-worker' as const,
+            agentRole: 'worker2' as const,
+          },
+        ]
+      : [
+          {
+            id: 'worker1',
+            label: 'Worker 1',
+            kind: 'main-worker' as const,
+            agentRole: 'worker1' as const,
+          },
+        ]),
+  ]);
 }
 
 export function isValidAgentPanelForwardTarget(
   agent: AgentRole,
   targetId: string,
   managerDisplayName?: string,
+  teamsGraph?: TeamsGraphNode[],
 ) {
-  return getAgentPanelForwardTargets(agent, managerDisplayName).some(
+  return getAgentPanelForwardTargets(agent, managerDisplayName, teamsGraph).some(
     (target) => target.id === targetId,
   );
 }
 
 export function getTeamSubManagerForwardTargets(
-  workers: Array<{ id: string; label: string }>,
+  sourceNodeId: string,
+  teamsGraph?: TeamsGraphNode[],
 ): ReviewForwardTargetOption[] {
-  return [
-    ...workers.map((worker) => ({
-      id: worker.id,
-      label: worker.label,
+  const liveTeamsGraph = getLiveTeamsGraph(teamsGraph);
+  const sourceNode = getNodeById(liveTeamsGraph, sourceNodeId);
+  if (!sourceNode || sourceNode.type !== 'senior_manager') {
+    return [];
+  }
+
+  const workerTargets = getDirectWorkerTargets(sourceNode.id, liveTeamsGraph);
+  const subordinateTargets = collectDescendantSubManagerTargets(sourceNode.id, liveTeamsGraph);
+  const upwardTarget =
+    sourceNode.parentId === 'gm_1'
+      ? buildGeneralManagerTarget()
+      : (() => {
+          const parentSubManager = getNearestSubManagerAncestor(sourceNode, liveTeamsGraph);
+          return parentSubManager
+            ? ({
+                id: `team:${parentSubManager.teamId}:${parentSubManager.id}:sub-manager`,
+                label: `${parentSubManager.label} Sub-Manager`,
+                kind: 'team-sub-manager' as const,
+                teamId: parentSubManager.teamId,
+                nodeId: parentSubManager.id,
+              } satisfies ReviewForwardTargetOption)
+            : null;
+        })();
+
+  return dedupeReviewTargets([
+    ...workerTargets,
+    ...subordinateTargets,
+    ...(upwardTarget ? [upwardTarget] : []),
+  ]);
+}
+
+export function getTeamWorkerForwardTargets(
+  workerNodeId: string,
+  teamsGraph?: TeamsGraphNode[],
+): ReviewForwardTargetOption[] {
+  const liveTeamsGraph = getLiveTeamsGraph(teamsGraph);
+  const workerNode = getNodeById(liveTeamsGraph, workerNodeId);
+  if (!workerNode || workerNode.type !== 'worker') {
+    return [];
+  }
+
+  const parentSubManager = getNearestSubManagerAncestor(workerNode, liveTeamsGraph);
+  if (!parentSubManager) {
+    return [];
+  }
+
+  const siblingWorkerTargets = liveTeamsGraph
+    .filter(
+      (node) =>
+        node.type === 'worker' &&
+        node.teamId === workerNode.teamId &&
+        node.parentId === workerNode.parentId &&
+        node.id !== workerNode.id,
+    )
+    .map((node) => ({
+      id: node.id,
+      label: node.label,
       kind: 'team-worker' as const,
-      workerId: worker.id,
-    })),
-    buildGeneralManagerTarget(),
-  ];
+      workerId: node.id,
+      teamId: node.teamId,
+      nodeId: node.id,
+    }));
+
+  return dedupeReviewTargets([
+    {
+      id: `team:${parentSubManager.teamId}:${parentSubManager.id}:sub-manager`,
+      label: `${parentSubManager.label} Sub-Manager`,
+      kind: 'team-sub-manager',
+      teamId: parentSubManager.teamId,
+      nodeId: parentSubManager.id,
+    },
+    ...siblingWorkerTargets,
+  ]);
 }
 
 export function isValidTeamSubManagerForwardTarget(
-  target: Pick<ReviewForwardTargetOption, 'id' | 'agentRole' | 'workerId'> | null | undefined,
-  workerIds: string[],
+  target: Pick<ReviewForwardTargetOption, 'id'> | null | undefined,
+  availableTargets: ReviewForwardTargetOption[],
 ) {
   if (!target) {
     return false;
   }
 
-  if (
-    target.id === 'main_workspace:manager' &&
-    target.agentRole === 'manager'
-  ) {
-    return true;
-  }
-
-  return Boolean(target.workerId && workerIds.includes(target.workerId));
+  return availableTargets.some((option) => option.id === target.id);
 }
 
 export function getCrossVerificationForwardTargets(

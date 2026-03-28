@@ -1357,12 +1357,10 @@ function TreeStructureView({
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
+                      <div
                         data-pan-block="true"
                         data-viewport-block="true"
-                        className="w-full rounded-[10px] px-1.5 py-1 text-left font-semibold underline decoration-dotted underline-offset-[3px] transition-colors hover:bg-white/25"
-                        title={`${node.label} - click to rename`}
+                        className="w-full rounded-[10px] px-1.5 py-1 text-left font-semibold text-neutral-900"
                         onPointerDown={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -1379,18 +1377,14 @@ function TreeStructureView({
                           event.preventDefault();
                           event.stopPropagation();
                         }}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          inlineRenameBlurModeRef.current = 'commit';
-                          onStartInlineRename(node);
-                        }}
+                        onClick={(event) => event.stopPropagation()}
                         onDoubleClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
                         }}
                       >
                         {node.label}
-                      </button>
+                      </div>
                     )
                   }
                   subtitle={cardDetails.subtitle}

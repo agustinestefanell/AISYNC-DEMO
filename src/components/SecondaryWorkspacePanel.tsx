@@ -3,7 +3,7 @@ import { buildTeamWorkerAuditAnswerPayload } from '../auditRouting';
 import { useApp } from '../context';
 import { openCrossVerificationWindow } from '../crossVerificationLaunch';
 import { getProviderDisplayName } from '../data/teams';
-import type { AgentRole, AIProvider, FileType, WorkspaceVersion } from '../types';
+import type { AgentRole, AIProvider, FileType, ReviewForwardTargetOption, WorkspaceVersion } from '../types';
 import { formatWorkspaceVersionTimestamp } from '../versioning';
 import { ContextUploadModal, type ContextUploadItem } from './ContextUploadModal';
 import { LockIconButton } from './LockIconButton';
@@ -88,7 +88,7 @@ export function SecondaryWorkspacePanel({
   documentLocked: boolean;
   workspaceVersions: WorkspaceVersion[];
   seedMessages: TeamMessage[];
-  forwardOptions: Array<{ id: string; label: string }>;
+  forwardOptions: ReviewForwardTargetOption[];
   onSetDraft: (value: string) => void;
   onToggleDocumentLock: () => void;
   onSaveVersion: () => void;
@@ -96,7 +96,7 @@ export function SecondaryWorkspacePanel({
   onClearSelection: () => void;
   onAddUserMessage: (message: TeamMessage) => void;
   onAddAgentReply: (message: TeamMessage) => void;
-  onForwardSelection: (targetWorkerId: string, message: TeamMessage) => void;
+  onForwardSelection: (target: ReviewForwardTargetOption, message: TeamMessage) => void;
   onResetToSeed: (messages: TeamMessage[]) => void;
   onClearChat: () => void;
   style?: CSSProperties;
@@ -197,12 +197,13 @@ export function SecondaryWorkspacePanel({
       return;
     }
 
-    if (!forwardTarget) {
-      setToast('Choose another worker first.');
+    const target = forwardOptions.find((option) => option.id === forwardTarget);
+    if (!target) {
+      setToast('Choose a valid destination first.');
       return;
     }
 
-    onForwardSelection(forwardTarget, {
+    onForwardSelection(target, {
       id: createMessageId(),
       role: 'system',
       content: buildForwardedContent(selectedMessages, workerLabel.toUpperCase()),

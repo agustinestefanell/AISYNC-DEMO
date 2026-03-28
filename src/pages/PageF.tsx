@@ -21,13 +21,14 @@ import {
 } from '../data/teams';
 import {
   getTeamSubManagerForwardTargets,
+  getTeamWorkerForwardTargets,
   isValidTeamSubManagerForwardTarget,
 } from '../reviewForwardPolicy';
 import {
   getTeamWorkspaceLaunchIdFromLocation,
   readTeamWorkspaceLaunch,
 } from '../teamWorkspaceLaunch';
-import type { AIProvider, AgentRole, TeamsGraphNode } from '../types';
+import type { AIProvider, AgentRole, ReviewForwardTargetOption, TeamsGraphNode } from '../types';
 import { createWorkspaceVersion, createWorkspaceVersionEvent } from '../versioning';
 
 const SAVE_AGENT_ORDER: AgentRole[] = ['worker1', 'worker2', 'manager'];
@@ -400,6 +401,8 @@ export function PageF() {
       versions: [],
     };
 
+    const workerForwardOptions = getTeamWorkerForwardTargets(worker.id, teamsState.teamsGraph);
+
     return (
       <SecondaryWorkspacePanel
         teamId={teamId}
@@ -415,12 +418,7 @@ export function PageF() {
         documentLocked={workerState.locked}
         workspaceVersions={workerState.versions}
         seedMessages={buildSeedMessages(teamId, teamLabel, worker.label, worker.provider)}
-        forwardOptions={workspaceMembers
-          .filter((candidate) => candidate.id !== worker.id)
-          .map((candidate) => ({
-            id: candidate.id,
-            label: candidate.label,
-          }))}
+        forwardOptions={workerForwardOptions}
         style={style}
         onSetDraft={(value) =>
           updateWorkerState(worker.id, (current) => ({
@@ -495,12 +493,22 @@ export function PageF() {
             messages: [...current.messages, message],
           }))
         }
-        onForwardSelection={(targetWorkerId, message) =>
-          updateWorkerState(targetWorkerId, (current) => ({
-            ...current,
-            messages: [...current.messages, message],
-          }))
-        }
+        onForwardSelection={(target, message) => {
+          if (target.kind === 'team-worker' && target.workerId) {
+            updateWorkerState(target.workerId, (current) => ({
+              ...current,
+              messages: [...current.messages, message],
+            }));
+            return;
+          }
+
+          if (target.kind === 'team-sub-manager') {
+            updateWorkerState(TEAM_MANAGER_THREAD_ID, (current) => ({
+              ...current,
+              messages: [...current.messages, message],
+            }));
+          }
+        }}
         onResetToSeed={(seedMessages) =>
           updateWorkerState(worker.id, (current) => ({
             ...current,
@@ -522,12 +530,9 @@ export function PageF() {
   };
 
   const renderManagerPanel = (style?: CSSProperties) => {
-    const validWorkerIds = workspaceMembers.map((worker) => worker.id);
     const forwardOptions: TeamSubManagerForwardOption[] = getTeamSubManagerForwardTargets(
-      workspaceMembers.map((worker) => ({
-        id: worker.id,
-        label: worker.label,
-      })),
+      rootNode?.id ?? '',
+      teamsState.teamsGraph,
     );
 
     return (
@@ -617,7 +622,7 @@ export function PageF() {
           }))
         }
         onForwardSelection={(target, message) => {
-          if (!isValidTeamSubManagerForwardTarget(target, validWorkerIds)) {
+          if (!isValidTeamSubManagerForwardTarget(target, forwardOptions)) {
             return;
           }
 
@@ -638,6 +643,14 @@ export function PageF() {
                 agent: target.agentRole,
               },
             });
+            return;
+          }
+
+          if (target.kind === 'team-sub-manager') {
+            updateWorkerState(TEAM_MANAGER_THREAD_ID, (current) => ({
+              ...current,
+              messages: [...current.messages, message],
+            }));
           }
         }}
         onResetToSeed={(seedMessages) =>

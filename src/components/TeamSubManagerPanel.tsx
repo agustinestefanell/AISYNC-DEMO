@@ -105,10 +105,6 @@ export function TeamSubManagerPanel({
     () => messages.filter((message) => selectedIds.includes(message.id)),
     [messages, selectedIds],
   );
-  const validWorkerIds = useMemo(
-    () => forwardOptions.flatMap((option) => (option.workerId ? [option.workerId] : [])),
-    [forwardOptions],
-  );
   const latestVersion = workspaceVersions[workspaceVersions.length - 1] ?? null;
   const versionSummary = latestVersion
     ? `Version ${latestVersion.versionNumber} - Saved ${formatWorkspaceVersionTimestamp(
@@ -188,7 +184,7 @@ export function TeamSubManagerPanel({
     }
 
     const target = forwardOptions.find((option) => option.id === forwardTarget);
-    if (!target || !isValidTeamSubManagerForwardTarget(target, validWorkerIds)) {
+    if (!target || !isValidTeamSubManagerForwardTarget(target, forwardOptions)) {
       setToast('Choose a valid destination first.');
       return;
     }

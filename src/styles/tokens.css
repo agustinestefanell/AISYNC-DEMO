@@ -609,22 +609,22 @@ input[type="file"].ui-input {
 
 .ui-lock-icon-button {
   min-height: 28px;
-  width: 28px;
-  padding: 0;
+  min-width: 64px;
+  padding: 0 12px;
   border-radius: 999px;
   box-shadow: none;
 }
 
 .ui-lock-icon-button-locked {
-  border-color: var(--color-phase-closed-border);
-  background: var(--color-phase-closed-soft);
-  color: var(--color-phase-closed-accent);
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
 }
 
 .ui-lock-icon-button-unlocked {
-  border-color: var(--color-phase-open-border);
-  background: var(--color-phase-open-soft);
-  color: var(--color-phase-open-accent);
+  border-color: #111111;
+  background: #ffffff;
+  color: #111111;
 }
 
 .ui-chat-composer-section,

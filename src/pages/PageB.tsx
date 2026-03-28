@@ -437,6 +437,223 @@ const DOCUMENTATION_MODE_MANIFEST = [
   'cada carpeta y cada manifiesto deben decir quien produjo que, desde donde, bajo que rol, en que momento, con que estado y con que relacion con el resto del sistema, sin destruir la historia cuando la estructura evoluciona.',
 ].join('\n');
 
+const DOCUMENTATION_MODE_MANIFEST_EN = [
+  '# Documentation Mode Manifest - AISync',
+  '## Version 2',
+  '',
+  '## 1. Purpose',
+  '',
+  'Documentation Mode is not a simple folder explorer.',
+  'It is AISync\'s structural documentary layer.',
+  '',
+  'Its function is to transform the operational activity of Teams, Sub-Managers, and Workers into a local, hierarchical, traceable, and navigable documentary structure in which the user can understand:',
+  '',
+  '- who produced each document,',
+  '- from which hierarchical level,',
+  '- under which role,',
+  '- in which operational context,',
+  '- in which phase of the work,',
+  '- and with what relationship to the rest of the system.',
+  '',
+  'Documentation Mode must act as the documentary memory of the process, not as undifferentiated storage.',
+  '',
+  '## 2. Guiding principle',
+  '',
+  'The documentary structure must reflect the real structure of Teams.',
+  '',
+  'This means the folder tree is organized by operational hierarchy, provenance, agent role, process continuity, and historical traceability.',
+  '',
+  'This logic is consistent with the archival principle of provenance and the preservation of original order, that is, preserving the production context and the real relationships between documents.',
+  '',
+  '## 3. Repository root',
+  '',
+  'The user manually defines the root location of the documentary repository.',
+  '',
+  'Conceptual example:',
+  '',
+  '/AISync_Repository/',
+  '',
+  'That root becomes the local anchor point from which Documentation Mode builds the full structure.',
+  '',
+  'AISync proposes the structure. The user defines the location.',
+  '',
+  '## 4. General structural rule',
+  '',
+  'Below the root, Documentation Mode must faithfully reproduce the structure of Teams.',
+  '',
+  'Each Team will have its own folder. Within each Team there will be separate folders by agent.',
+  '',
+  'The structure must reflect the General Manager, Sub-Managers, Workers, sub-teams derived from organizational elasticity, and real hierarchical links.',
+  '',
+  'There must not be a flat organization that mixes agents from different branches.',
+  '',
+  '## 5. Documentary provenance principle',
+  '',
+  'Each agent must have its own documentary unit.',
+  '',
+  'This implies one folder per Team, one folder per Sub-Manager, one folder per Worker, and documentary separation by real origin.',
+  '',
+  'A folder does not represent only physical location. It represents who produced what and from where.',
+  '',
+  '## 6. Historical non-rewriting principle',
+  '',
+  'Documentation Mode must not retrospectively rewrite operational history.',
+  '',
+  'Mandatory rule: if a Worker is promoted to Sub-Manager, the historical Worker folder is not renamed, not reused as if it had always been a Sub-Manager folder, and the previous stage is not erased.',
+  '',
+  'Instead, the Worker\'s historical folder is preserved and a new folder is created for the new Sub-Manager role.',
+  '',
+  'Renaming the previous folder would destroy traceability.',
+  '',
+  '## 7. Agent promotion rule',
+  '',
+  'When organizational elasticity occurs and a Worker is promoted, the historical folder remains intact, a new folder is created for the new Sub-Manager, that folder becomes the head of a new documentary substructure, and the new Workers hang from that new unit.',
+  '',
+  'Different roles must not be merged into a single folder and the system must not retrospectively simulate that the agent always had the new role.',
+  '',
+  '## 8. Documentary identity',
+  '',
+  'Each documentary unit must distinguish between stable identity, visible name, operational role, hierarchical position, and temporal state.',
+  '',
+  'The visible name may change. Documentary identity must not depend exclusively on that name.',
+  '',
+  'For that reason, Documentation Mode must use a dual logic: persistent ID plus editable visible label.',
+  '',
+  '## 9. Renaming rule',
+  '',
+  'The visible renaming of a Team or an agent must not destroy historical traceability.',
+  '',
+  'The system must preserve continuity even if the label changes, and the physical structure must not depend solely on the current visible name.',
+  '',
+  'The physical path must be stable enough not to break references, history, indexes, or auditing when names change.',
+  '',
+  '## 10. Minimum per-agent structure',
+  '',
+  'Within each agent folder, documentation must be organized by operational function.',
+  '',
+  'The recommended minimum structure is:',
+  '',
+  '- inbox / input',
+  '- working',
+  '- review & forward',
+  '- output',
+  '- archive',
+  '',
+  'The agent folder is not a generic drawer; it must reflect the agent\'s real workflow.',
+  '',
+  '## 11. Physical structure is not enough',
+  '',
+  'Documentation Mode must not depend only on the folder tree.',
+  '',
+  'Physical structure provides provenance, hierarchy, legibility, and operational order. Fast retrieval, audit linkage, and future compliance compatibility also require manifests, a cross-index, and structured metadata.',
+  '',
+  'The folder provides context. The index and metadata provide speed, traceability, and operational recoverability.',
+  '',
+  '## 12. Manifests',
+  '',
+  'Each Team and each agent must be able to have its own manifest.',
+  '',
+  'Its function is to record, at minimum: team_id, team_label, agent_id, agent_label, agent_role, parent_team_id, parent_agent_id, created_at, updated_at, origin_workspace, status, record_class, sensitivity_level, retention_rule, official_copy, path, checksum, and related_audit_events.',
+  '',
+  'The folder is the visible structure. The manifest is the intellectual structure.',
+  '',
+  '## 13. Cross-index',
+  '',
+  'In addition to the tree and individual manifests, Documentation Mode must provide for a cross-index.',
+  '',
+  'That index enables fast searches by Team, agent, Sub-Manager, Worker, date, event, documentary type, state, Review & Forward, origin, destination, and relationship with Audit Log.',
+  '',
+  'This index is what makes Documentation Mode compatible with Audit Log, Calendar Mode, fast search, and filters by events or responsible actors.',
+  '',
+  'Without an index, the tree is readable. With an index, the system is operationally usable.',
+  '',
+  '## 14. Compatibility with Audit Log',
+  '',
+  'Documentation Mode must be compatible with Audit Log from its base design.',
+  '',
+  'This means documentation must be able to link to creation events, editing events, Review & Forward, versions, approved outputs, responsible actors, and relevant dates.',
+  '',
+  'Audit Log must be able to query Documentation Mode not only by physical path, but also by metadata, manifests, the cross-index, and the link between event and document.',
+  '',
+  '## 15. Compatibility with Calendar Mode',
+  '',
+  'Documentation Mode must anticipate future compatibility with Calendar Mode.',
+  '',
+  'That requires documents and events to be temporally associated with creation date, review date, forward date, approval date, archive date, and relevant process milestones.',
+  '',
+  'In this way, Calendar Mode will be able to query and display documentary activity on a timeline without depending on file names or manual tree inspection.',
+  '',
+  '## 16. Separation between work and archive',
+  '',
+  'Documentation Mode must clearly distinguish between active documentation, documentation under review, final documentation, and archived documentation.',
+  '',
+  'A serious system must distinguish between what is being produced, what is being reviewed, what was forwarded, what was approved, and what remains as historical evidence.',
+  '',
+  '## 17. Compatibility with data compliance',
+  '',
+  'Documentation Mode must be born prepared for future compatibility with documentary and regulatory compliance.',
+  '',
+  'That implies anticipating documentary classification, retention rules, official copy / record copy, document states, legal hold, archive policy, and change traceability.',
+  '',
+  'This does not mean all that logic must be implemented now. It means the structure must leave room to integrate it without redesigning everything from scratch.',
+  '',
+  '## 18. Compatibility with data safety',
+  '',
+  'Documentation Mode must also be born prepared for future compatibility with data safety.',
+  '',
+  'That requires role-based access control, documentary sensitivity, file integrity, checksum / fixity, encryption when applicable, and protection against alteration or loss.',
+  '',
+  '## 19. Non-mixing rule between official copy and working copy',
+  '',
+  'Documentation Mode must distinguish between working copy, reviewed copy, official copy, and archived record.',
+  '',
+  'This is important for traceability, compliance, auditing, and the legal robustness of the system.',
+  '',
+  'A file must not remain ambiguously positioned between draft, approved version, and historical record.',
+  '',
+  '## 20. Human legibility rule',
+  '',
+  'Even if the structure is rigorous, it must remain understandable for the user.',
+  '',
+  'This requires readable names, clear hierarchies, visual consistency, and an evident relationship with Teams Map.',
+  '',
+  'The user must be able to look at Documentation Mode and understand that they are seeing the documentary translation of AISync\'s operating system.',
+  '',
+  '## 21. Coherence rule with Teams Map',
+  '',
+  'Documentation Mode must be the documentary mirror of Teams Map.',
+  '',
+  'If Teams Map shows a Team, a Sub-Manager, two Workers, and a promoted branch, Documentation Mode must reflect exactly that logic in folders and manifests.',
+  '',
+  'There must not be two parallel realities: one operational and another documentary.',
+  '',
+  '## 22. Stability rule',
+  '',
+  'The documentary structure must not change capriciously in response to minor UI changes.',
+  '',
+  'Priority must be given to stability, persistence, continuity, and historical traceability.',
+  '',
+  'Documentation Mode is not a visual effect; it is a structural layer of the system.',
+  '',
+  '## 23. Future expansion rule',
+  '',
+  'The structure must be able to grow later to incorporate linked manifests, versions, hashes, document locks, approval states, legal hold, metadata search, strong linkage with Audit Log, and chronological visualization in Calendar Mode.',
+  '',
+  'The foundation must be prepared from the design stage, even if those functions are implemented later.',
+  '',
+  '## 24. Final definition',
+  '',
+  'Documentation Mode in AISync will be a local, hierarchical, traceable documentary system compatible with future governance, built from the real structure of Teams.',
+  '',
+  'Each Team will have its documentary unit, each agent will have its own documentary unit, role changes will not rewrite history, the physical tree will preserve provenance, and manifests plus indexes will enable fast retrieval, auditing, compliance, and future expansion toward data safety.',
+  '',
+  '## 25. Summarized operational rule',
+  '',
+  'In one line:',
+  '',
+  'Each folder and each manifest must say who produced what, from where, under which role, at what moment, with what state, and with what relationship to the rest of the system, without destroying history when the structure evolves.',
+].join('\n');
+
 function isRepositoryDocumentItem(item: DocumentationRepositoryItem) {
   return item.itemType === 'file';
 }
@@ -584,6 +801,7 @@ export function PageB() {
   const subManagerLabel = getSecondarySubManagerLabel('B');
   const [showManagerMobile, setShowManagerMobile] = useState(false);
   const [showManifestView, setShowManifestView] = useState(false);
+  const [showAuditManifestView, setShowAuditManifestView] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [openFileId, setOpenFileId] = useState<string | null>(null);
@@ -1589,8 +1807,16 @@ export function PageB() {
     const shouldOpenFile = params.get('doc_open') === 'file';
     const shouldFocusDetail = params.get('doc_focus') === 'detail';
 
-    if (viewFromLocation === 'repository' && activeView !== 'repository') {
-      setActiveView('repository');
+    if (
+      viewFromLocation &&
+      (viewFromLocation === 'repository' ||
+        viewFromLocation === 'audit' ||
+        viewFromLocation === 'investigate' ||
+        viewFromLocation === 'knowledge-map' ||
+        viewFromLocation === 'structure') &&
+      activeView !== viewFromLocation
+    ) {
+      setActiveView(viewFromLocation);
     }
     setRepositoryFocusMode(shouldFocusDetail ? 'detail' : 'list');
 
@@ -1688,23 +1914,50 @@ export function PageB() {
     }
   };
 
-  const buildRepositoryItemHref = (itemId: string) => {
+  const buildRepositoryItemHref = (
+    itemId: string,
+    options?: { view?: DocumentationViewMode; openFile?: boolean; focusDetail?: boolean },
+  ) => {
     const item = documentationModel.repositoryItems.find((candidate) => candidate.id === itemId) ?? null;
     if (!item) return '#';
 
     const url = new URL(window.location.href);
     url.searchParams.set('page', 'B');
-    url.searchParams.set('doc_view', 'repository');
+    url.searchParams.set('doc_view', options?.view ?? 'repository');
     url.searchParams.set('doc_item', item.id);
-    if (item.relatedFileId) {
+    const shouldOpenFile = options?.openFile ?? Boolean(item.relatedFileId);
+    const shouldFocusDetail = options?.focusDetail ?? !shouldOpenFile;
+    if (shouldOpenFile && item.relatedFileId) {
       url.searchParams.set('doc_open', 'file');
       url.searchParams.delete('doc_focus');
-    } else {
+    } else if (shouldFocusDetail) {
       url.searchParams.delete('doc_open');
       url.searchParams.set('doc_focus', 'detail');
+    } else {
+      url.searchParams.delete('doc_open');
+      url.searchParams.delete('doc_focus');
     }
 
     return url.toString();
+  };
+
+  const openRepositoryDocumentOverlay = (itemId: string, relatedFileId?: string | null) => {
+    const item = documentationModel.repositoryItems.find((candidate) => candidate.id === itemId) ?? null;
+    if (!item) return;
+
+    setSelectedRepositoryItemId(item.id);
+
+    if (
+      relatedFileId &&
+      state.savedFiles.some((file) => file.id === relatedFileId)
+    ) {
+      setShowRepositoryDetailModal(false);
+      setOpenFileId(relatedFileId);
+      return;
+    }
+
+    setOpenFileId(null);
+    setShowRepositoryDetailModal(true);
   };
 
   const documentationViewContent =
@@ -1989,7 +2242,7 @@ export function PageB() {
                         setAuditDateFilter('');
                       }}
                     >
-                      Reset audit filters
+                      Reset Search
                     </button>
                   </div>
                 </div>
@@ -2006,16 +2259,10 @@ export function PageB() {
           </div>
           <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1">
                 {auditFilteredEntries.map((entry) => (
-                  <AuditEntryCard
+                  <AuditEntryReferenceRow
                     key={entry.id}
                     entry={entry}
-                    onOpenDocument={() => focusRepositoryDocument(entry.repositoryItemId)}
-                    onOpenFile={
-                      entry.relatedFileId &&
-                      state.savedFiles.some((file) => file.id === entry.relatedFileId)
-                        ? () => focusRepositoryDocument(entry.repositoryItemId, { openFile: true })
-                        : undefined
-                    }
+                    onOpen={() => openRepositoryDocumentOverlay(entry.repositoryItemId, entry.relatedFileId)}
                   />
                 ))}
 
@@ -2316,12 +2563,22 @@ export function PageB() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                className="text-[11px] font-normal text-neutral-500 underline-offset-2 transition-colors hover:text-neutral-900 hover:underline"
-                onClick={() => setShowManifestView(true)}
-              >
-                (Manif.)
-              </button>
+              <div className="flex flex-col items-end leading-none">
+                <button
+                  className="text-[11px] font-normal text-neutral-500 underline-offset-2 transition-colors hover:text-neutral-900 hover:underline"
+                  onClick={() => setShowManifestView(true)}
+                >
+                  (Manif.)
+                </button>
+                {activeView === 'audit' ? (
+                  <button
+                    className="mt-1 text-[10px] font-normal text-neutral-400 underline-offset-2 transition-colors hover:text-neutral-700 hover:underline"
+                    onClick={() => setShowAuditManifestView(true)}
+                  >
+                    Audit manif.
+                  </button>
+                ) : null}
+              </div>
               <button
                 className="ui-button ui-button-primary min-h-9 px-2.5 text-[11px] text-white sm:min-h-8"
                 onClick={() => setShowNewProjectModal(true)}
@@ -2494,8 +2751,118 @@ export function PageB() {
               Temporary internal reference
             </div>
             <pre className="whitespace-pre-wrap text-sm leading-6 text-neutral-800">
-              {DOCUMENTATION_MODE_MANIFEST}
+              {DOCUMENTATION_MODE_MANIFEST_EN}
             </pre>
+          </div>
+        </Modal>
+      )}
+
+      {showAuditManifestView && (
+        <Modal title="Audit manif." onClose={() => setShowAuditManifestView(false)} width="max-w-2xl">
+          <div className="grid gap-4">
+            <div className="text-[11px] uppercase tracking-[0.16em] text-neutral-500">
+              Audit View logic
+            </div>
+            <div className="grid gap-3 text-sm leading-6 text-neutral-800">
+              <p>
+                Audit View is the operational traceability view of Documentation Mode.
+              </p>
+              <p>
+                It is not designed to find files like Repository View, nor to investigate a thematic
+                sequence like Investigate View. It is designed to answer this question: what
+                happened, to which document, when, and with which responsible actor or operational
+                linkage.
+              </p>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  What it actually shows
+                </div>
+                <p>
+                  Audit View does not show only documents. It shows auditable records. Each record
+                  combines two things: a real document or documentary item, and an auditable event
+                  associated with that document. In other words, you do not simply see the file. You
+                  see the file plus the relevant fact that happened to it.
+                </p>
+              </div>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  Event logic
+                </div>
+                <p>
+                  Audit View is intentionally oriented to minimal, legible, useful events rather than
+                  raw technical logs. The correct events are things like Created / first indexed,
+                  Updated, State changed, Locked, and Version advanced. It should not invent events
+                  that the base cannot support with real evidence. If there is no real traceability
+                  for something like a responsibility change, that history should not be faked.
+                </p>
+              </div>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  What it helps answer
+                </div>
+                <p>
+                  Audit View helps answer things like which document was locked, which one changed
+                  state, which piece was updated, which version advanced, who appears as responsible,
+                  which workspace it comes from, which time reference it carries, and how it links to
+                  the rest of the system.
+                </p>
+                <p>
+                  In simple terms: Repository View = what exists. Audit View = what happened.
+                  Investigate View = how it evolved.
+                </p>
+              </div>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  Page structure
+                </div>
+                <p>
+                  Audit View is usually organized from top to bottom as a compact indicator line, a
+                  filter block, and then the main list of auditable records. The indicator line gives
+                  a quick reading of the visible slice. The filters help isolate only what is locked,
+                  approved, touched by a certain actor, or tied to a certain time reference. The main
+                  list is the core of the page, and each row should represent a specific auditable
+                  case.
+                </p>
+              </div>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  What a record contains
+                </div>
+                <p>
+                  A well-read Audit View record should show the document name, project, team,
+                  document class or type, document state, version, USER, Responsible, Reference
+                  Time, Source Workspace, Audit Linkage, and Path, together with navigation actions
+                  such as Open in Repository View and Open file. That allows the user to move from
+                  traceability back into real operation.
+                </p>
+              </div>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  What it is not
+                </div>
+                <p>
+                  Audit View is not a folder explorer, not the main document browser, not a deep
+                  thematic timeline, not a raw technical log for developers, and not a database table
+                  exposed to the user. It should feel like a readable operational trail.
+                </p>
+              </div>
+              <div className="grid gap-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  Product value
+                </div>
+                <p>
+                  Audit View matters because it lands one of AISync&apos;s central promises: not only
+                  producing with AI, but being able to reconstruct the process with control and
+                  operational memory. It does not stop at saying “here is the document.” It says:
+                  “here is the document, this was its state, this was the relevant event, this was
+                  the responsible actor, and from here you can return to the repository or the real
+                  file.”
+                </p>
+              </div>
+              <p className="font-medium text-neutral-900">
+                Audit View is the layer that turns documents into traceable operational evidence.
+              </p>
+            </div>
           </div>
         </Modal>
       )}
@@ -2525,6 +2892,26 @@ function DocumentationStatCard({
   );
 }
 
+function DocumentListRowIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className="h-4 w-4 flex-none text-neutral-500"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 2.75h5.25L15.5 7v10.25a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1v-13.5a1 1 0 0 1 1-1Z" />
+      <path d="M11 2.75V7h4.5" />
+      <path d="M7.5 10.25h5" />
+      <path d="M7.5 13h5" />
+    </svg>
+  );
+}
+
 function InvestigationThreadCard({
   thread,
   onOpenDocument,
@@ -2535,17 +2922,23 @@ function InvestigationThreadCard({
   onOpenFile?: () => void;
 }) {
   const visibleChronology = [...thread.chronology].slice(-4).reverse();
+  const chronologySummary = visibleChronology
+    .map((entry) => `${entry.eventLabel} · ${entry.occurredAt ?? 'n/a'}`)
+    .join('  ·  ');
 
   return (
-    <div className="ui-surface-subtle rounded-[18px] px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-[14px] border border-neutral-200 bg-white/80 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-neutral-900">{thread.title}</div>
+          <div className="flex min-w-0 items-start gap-2">
+            <DocumentListRowIcon />
+            <div className="truncate text-[13px] font-semibold text-neutral-900">{thread.title}</div>
+          </div>
           <div className="mt-1 text-xs leading-[1.5] text-neutral-600">
             {thread.projectLabel ?? 'No project'} · {thread.teamLabel} · {thread.sourceWorkspace}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {thread.documentState ? (
             <div
               className={`rounded-full border px-2 py-1 text-[10px] font-semibold tracking-[0.08em] ${getDocumentStateClasses(
@@ -2563,14 +2956,14 @@ function InvestigationThreadCard({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-2 text-xs text-neutral-700 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-2 grid gap-2 text-xs text-neutral-700 sm:grid-cols-2 xl:grid-cols-4">
         <DetailField label="USER" value={thread.userLabel ?? 'n/a'} />
         <DetailField label="Last Responsible" value={thread.lastResponsible ?? 'n/a'} />
         <DetailField label="Document Type" value={thread.documentKind ?? 'n/a'} />
         <DetailField label="Latest Reference" value={thread.lastSeen ?? 'n/a'} />
       </div>
 
-      <div className="mt-4 grid gap-2">
+      <div className="mt-2 grid gap-2">
         <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
           Investigative sequence
         </div>
@@ -2588,7 +2981,7 @@ function InvestigationThreadCard({
         ))}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         <button
           className="ui-button min-h-8 px-3 text-[11px] text-neutral-700"
           onClick={onOpenDocument}
@@ -3251,10 +3644,13 @@ function AuditEntryCard({
   onOpenFile?: () => void;
 }) {
   return (
-    <div className="ui-surface-subtle rounded-[18px] px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-[14px] border border-neutral-200 bg-white/80 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-neutral-900">{entry.documentTitle}</div>
+          <div className="flex min-w-0 items-start gap-2">
+            <DocumentListRowIcon />
+            <div className="truncate text-[13px] font-semibold text-neutral-900">{entry.documentTitle}</div>
+          </div>
           <div className="mt-1 text-xs leading-[1.5] text-neutral-600">
             {entry.teamLabel} · {entry.projectLabel ?? 'No project'} · {entry.recordClass}
           </div>
@@ -3268,7 +3664,7 @@ function AuditEntryCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         {entry.documentState ? (
           <div
             className={`rounded-full border px-2 py-1 text-[10px] font-semibold tracking-[0.08em] ${getDocumentStateClasses(
@@ -3285,7 +3681,7 @@ function AuditEntryCard({
         ) : null}
       </div>
 
-      <div className="mt-3 grid gap-2 text-xs text-neutral-700 sm:grid-cols-2">
+      <div className="mt-2 grid gap-2 text-xs text-neutral-700 sm:grid-cols-2">
         <DetailField label="USER" value={entry.userLabel ?? 'n/a'} />
         <DetailField label="Responsible" value={entry.responsibleLabel ?? 'n/a'} />
         <DetailField label="Reference Time" value={entry.occurredAt ?? 'n/a'} />
@@ -3298,7 +3694,7 @@ function AuditEntryCard({
 
       <DetailField label="Path" value={entry.path} long />
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         <button
           className="ui-button min-h-8 px-3 text-[11px] text-neutral-700"
           onClick={onOpenDocument}
@@ -3313,6 +3709,158 @@ function AuditEntryCard({
             Open file
           </button>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CompactAuditEntryRow({
+  entry,
+  openHref,
+}: {
+  entry: DocumentationAuditEntry;
+  openHref: string;
+}) {
+  return (
+    <div className="rounded-[14px] border border-neutral-200 bg-white/80 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start gap-2">
+            <DocumentListRowIcon />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold text-neutral-900">
+                {entry.documentTitle}
+              </div>
+              <div className="mt-0.5 truncate text-[11px] leading-5 text-neutral-600">
+                {entry.teamLabel} · {entry.projectLabel ?? 'No project'} · {entry.recordClass}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-start gap-2">
+          {entry.documentVersion ? (
+            <div className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-600">
+              {entry.documentVersion}
+            </div>
+          ) : null}
+          <div
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] ${getAuditEventClasses(
+              entry.eventKind,
+            )}`}
+          >
+            {entry.eventLabel}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {entry.documentState ? (
+            <div
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] ${getDocumentStateClasses(
+                entry.documentState,
+              )}`}
+            >
+              {entry.documentState}
+            </div>
+          ) : null}
+        </div>
+        <a
+          className="ui-button min-h-7 px-3 text-[11px] text-neutral-700"
+          href={openHref}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open
+        </a>
+      </div>
+
+      <div className="mt-2 grid gap-x-4 gap-y-1.5 text-xs text-neutral-700 sm:grid-cols-3">
+        <DetailField label="USER" value={entry.userLabel ?? 'n/a'} />
+        <DetailField label="Responsible" value={entry.responsibleLabel ?? 'n/a'} />
+        <DetailField label="Reference Time" value={entry.occurredAt ?? 'n/a'} />
+        <DetailField label="Source Workspace" value={entry.sourceWorkspace} />
+        <DetailField
+          label="Audit Linkage"
+          value={entry.auditEventIds.length ? `${entry.auditEventIds.length} linked event(s)` : 'n/a'}
+        />
+        <DetailField label="Path" value={entry.path} long />
+      </div>
+    </div>
+  );
+}
+
+function AuditEntryReferenceRow({
+  entry,
+  onOpen,
+}: {
+  entry: DocumentationAuditEntry;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="rounded-[14px] border border-neutral-200 bg-white/80 px-3 py-2">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,1.25fr)_auto]">
+        <div className="min-w-0 border-neutral-200 md:border-r md:pr-3">
+          <div className="flex items-start gap-2">
+            <DocumentListRowIcon />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold text-neutral-900">
+                {entry.documentTitle}
+              </div>
+              <div className="mt-0.5 truncate text-[11px] leading-5 text-neutral-600">
+                {entry.teamLabel} · {entry.projectLabel ?? 'No project'} · {entry.recordClass}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <DetailField label="USER" value={entry.userLabel ?? 'n/a'} />
+          <DetailField label="SOURCE WORKSPACE" value={entry.sourceWorkspace} />
+        </div>
+
+        <div className="grid gap-2">
+          <DetailField label="RESPONSIBLE" value={entry.responsibleLabel ?? 'n/a'} />
+          <DetailField
+            label="AUDIT LINKAGE"
+            value={entry.auditEventIds.length ? `${entry.auditEventIds.length} linked event(s)` : 'n/a'}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <DetailField label="REFERENCE TIME" value={entry.occurredAt ?? 'n/a'} />
+          <div className="grid gap-1">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+              PATH
+            </div>
+            <div className="truncate text-xs leading-[1.5] text-neutral-800" title={entry.path}>
+              {entry.path}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-w-[88px] flex-col items-end justify-between gap-3">
+          <div className="flex flex-wrap justify-end gap-2">
+            {entry.documentVersion ? (
+              <div className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-600">
+                {entry.documentVersion}
+              </div>
+            ) : null}
+            <div
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] ${getAuditEventClasses(
+                entry.eventKind,
+              )}`}
+            >
+              {entry.eventLabel}
+            </div>
+          </div>
+          <button
+            className="ui-button min-h-7 px-3 text-[11px] text-neutral-700"
+            onClick={onOpen}
+          >
+            Open
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -3350,67 +3898,70 @@ function RepositoryItemCard({
 
   return (
     <div
-      className={`ui-surface-subtle rounded-[18px] px-4 py-4 transition-colors ${
+      className={`rounded-[14px] border border-neutral-200 bg-white/80 px-3 py-2.5 transition-colors ${
         selected ? 'ring-2 ring-[var(--color-accent)] ring-offset-1' : ''
       }`}
       onClick={onSelect}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2.5">
         <div className="min-w-0 flex-1">
-          <a
-            href={href}
-            className="text-sm font-semibold text-neutral-900 underline-offset-2 hover:underline"
-            onClick={(event) => {
-              event.preventDefault();
-              onSelect();
-            }}
-          >
-            {title}
-          </a>
-          <div className="mt-1 text-xs leading-[1.5] text-neutral-600">{meta}</div>
-          {isDocument ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {documentState ? (
-                <div
-                  className={`rounded-full border px-2 py-1 text-[10px] font-semibold tracking-[0.08em] ${getDocumentStateClasses(
-                    documentState,
-                  )}`}
-                >
-                  {documentState}
-                </div>
-              ) : null}
-              {documentVersion ? (
-                <div className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-600">
-                  {documentVersion}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="mt-1 text-[11px] leading-[1.5] text-neutral-500">{secondary}</div>
+          <div className="flex min-w-0 items-center gap-2">
+            <DocumentListRowIcon />
+            <a
+              href={href}
+              className="truncate text-[13px] font-semibold text-neutral-900 underline-offset-2 hover:underline"
+              onClick={(event) => {
+                event.preventDefault();
+                onSelect();
+              }}
+            >
+              {title}
+            </a>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-[1.45] text-neutral-600">
+            <span>{meta}</span>
+            <span>{secondary}</span>
+          </div>
           {isDocument && lastResponsible ? (
-            <div className="mt-1 text-[11px] font-medium text-neutral-600">
+            <div className="mt-0.5 text-[10px] font-medium text-neutral-500">
               Last responsible: {lastResponsible}
             </div>
           ) : null}
         </div>
-        {!isDocument ? (
-          <div className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-600">
-            {stateLabel}
-          </div>
-        ) : null}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {isDocument && documentState ? (
+            <div
+              className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-[0.08em] ${getDocumentStateClasses(
+                documentState,
+              )}`}
+            >
+              {documentState}
+            </div>
+          ) : null}
+          {isDocument && documentVersion ? (
+            <div className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-neutral-600">
+              {documentVersion}
+            </div>
+          ) : null}
+          {!isDocument ? (
+            <div className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
+              {stateLabel}
+            </div>
+          ) : null}
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="ui-button inline-flex min-h-7 items-center px-3 text-[10px] font-semibold text-neutral-700"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Open
+          </a>
+        </div>
       </div>
-      <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="ui-button inline-flex min-h-8 items-center px-3 text-[11px] text-neutral-700"
-          onClick={(event) => event.stopPropagation()}
-        >
-          Open in new tab/window
-        </a>
+      <div className="mt-1.5 flex flex-wrap justify-end gap-2">
         {onOpen ? (
-          <button className="ui-button min-h-8 px-3 text-[11px] text-neutral-700" onClick={onOpen}>
+          <button className="ui-button min-h-7 px-3 text-[10px] text-neutral-700" onClick={onOpen}>
             Open item
           </button>
         ) : null}

@@ -407,6 +407,7 @@ export interface ReviewForwardTargetOption {
   agentRole?: AgentRole;
   teamId?: string;
   workerId?: string;
+  nodeId?: string;
 }
 
 export interface AuditAnswerPayload {
