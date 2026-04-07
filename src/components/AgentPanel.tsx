@@ -528,11 +528,13 @@ export function AgentPanel({
             return (
               <div
                 key={message.id}
-                className={`ui-chat-message-row group flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                className={`ui-chat-message-row group flex gap-2 ${
+                  isUser ? 'justify-end' : 'justify-start'
+                } ${isSelected ? 'ui-chat-message-row-selected' : ''}`}
               >
                 {!isUser && (
                   <button
-                    className={`mt-1 h-4 w-4 rounded border transition-colors ${
+                    className={`ui-chat-select-toggle mt-1 h-4 w-4 rounded border transition-colors ${
                       isSelected
                         ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
                         : 'border-neutral-300 bg-white hover:border-neutral-500'
@@ -572,7 +574,7 @@ export function AgentPanel({
                           : isManager
                             ? 'ui-message-bubble border-[rgba(164,145,102,0.14)]'
                             : 'ui-message-bubble'
-                    } ${isSelected ? 'ring-2 ring-[rgba(0,122,255,0.18)]' : ''}`}
+                    } ${isSelected ? 'ring-2 ring-[rgba(0,122,255,0.18)] ui-chat-message-bubble-selected' : ''}`}
                   >
                     {isForwarded ? (
                       <>
@@ -591,7 +593,7 @@ export function AgentPanel({
 
                 {isUser && (
                   <button
-                    className={`mt-1 h-4 w-4 rounded border transition-colors ${
+                    className={`ui-chat-select-toggle mt-1 h-4 w-4 rounded border transition-colors ${
                       isSelected
                         ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
                         : 'border-neutral-300 bg-white hover:border-neutral-500'
@@ -651,7 +653,7 @@ export function AgentPanel({
       <div
         className={`ui-chat-forward-section shrink-0 px-3 pb-0.5 pt-0.5 ${
           isManager ? 'ui-manager-section' : 'ui-worker-section-soft'
-        }`}
+        } ${selectedIds.length > 0 ? 'ui-chat-forward-section-active' : ''}`}
       >
         <div className="ui-forward-stack">
           <div className="ui-forward-row">

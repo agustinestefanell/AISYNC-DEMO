@@ -33,7 +33,7 @@ export function PageA() {
       agent={agent}
       auditSourcePage="A"
       editableRole={agent !== 'manager'}
-      className={state.workspaceFocusAgent === agent ? focusClass : ''}
+      className={`ui-main-workspace-lane ${state.workspaceFocusAgent === agent ? focusClass : ''}`.trim()}
     />
   );
 
@@ -87,7 +87,9 @@ export function PageA() {
           <AgentPanel
             agent="manager"
             auditSourcePage="A"
-            className={state.workspaceFocusAgent === 'manager' ? focusClass : ''}
+            className={`ui-main-workspace-lane ${
+              state.workspaceFocusAgent === 'manager' ? focusClass : ''
+            }`.trim()}
             style={{ width: 'calc((100% - 16px) / 2)' }}
           />
           <DividerRail />
@@ -95,7 +97,9 @@ export function PageA() {
             agent={tabletWorker}
             auditSourcePage="A"
             editableRole
-            className={state.workspaceFocusAgent === tabletWorker ? focusClass : ''}
+            className={`ui-main-workspace-lane ${
+              state.workspaceFocusAgent === tabletWorker ? focusClass : ''
+            }`.trim()}
             style={{ width: 'calc((100% - 16px) / 2)' }}
           />
         </div>
@@ -104,7 +108,9 @@ export function PageA() {
           <AgentPanel
             agent="manager"
             auditSourcePage="A"
-            className={state.workspaceFocusAgent === 'manager' ? focusClass : ''}
+            className={`ui-main-workspace-lane ${
+              state.workspaceFocusAgent === 'manager' ? focusClass : ''
+            }`.trim()}
             style={{ width: panelWidth }}
           />
           <DividerRail />
@@ -112,7 +118,9 @@ export function PageA() {
             agent="worker1"
             auditSourcePage="A"
             editableRole
-            className={state.workspaceFocusAgent === 'worker1' ? focusClass : ''}
+            className={`ui-main-workspace-lane ${
+              state.workspaceFocusAgent === 'worker1' ? focusClass : ''
+            }`.trim()}
             style={{ width: panelWidth }}
           />
           <DividerRail />
@@ -120,7 +128,9 @@ export function PageA() {
             agent="worker2"
             auditSourcePage="A"
             editableRole
-            className={state.workspaceFocusAgent === 'worker2' ? focusClass : ''}
+            className={`ui-main-workspace-lane ${
+              state.workspaceFocusAgent === 'worker2' ? focusClass : ''
+            }`.trim()}
             style={{ width: panelWidth }}
           />
         </div>

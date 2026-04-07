@@ -63,6 +63,9 @@ function ResponsiveDiagnostics({
 
       const mainShell = document.querySelector('.app-main-shell');
       const pageShell = document.querySelector('.app-main-shell > .app-page-shell');
+      const assistShell = document.querySelector('[data-assist-shell]');
+      const assistPanel = document.querySelector('[data-assist-panel-wrap]');
+      const assistMain = document.querySelector('[data-assist-main]');
 
       setSnapshot(
         JSON.stringify({
@@ -80,6 +83,16 @@ function ResponsiveDiagnostics({
             mainShell instanceof HTMLElement ? window.getComputedStyle(mainShell).overflowY : null,
           pageShellClientWidth: pageShell?.clientWidth ?? null,
           pageShellScrollWidth: pageShell?.scrollWidth ?? null,
+          assistShellVisible: visibleFlag('[data-assist-shell]'),
+          assistCollapsed:
+            assistShell instanceof HTMLElement
+              ? assistShell.getAttribute('data-assist-collapsed') === 'true'
+              : null,
+          assistTriggerVisible: visibleFlag('[data-assist-collapse-trigger]'),
+          assistPanelWidth:
+            assistPanel instanceof HTMLElement ? Math.round(assistPanel.getBoundingClientRect().width) : null,
+          assistMainWidth:
+            assistMain instanceof HTMLElement ? Math.round(assistMain.getBoundingClientRect().width) : null,
           visibleAgentPanels: visibleAttr('[data-agent-panel]', 'data-agent-panel'),
           visibleTeamPanels: visibleAttr('[data-team-panel]', 'data-team-panel'),
           workspaceTabs: visibleAttr('[data-workspace-tab]', 'data-workspace-tab'),

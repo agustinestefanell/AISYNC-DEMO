@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
-import { AgentPanel } from '../components/AgentPanel';
-import { DividerRail } from '../components/DividerRail';
 import { DocumentationMirrorTree, DocumentationTree } from '../components/DocumentationTree';
 import { FileViewer } from '../components/FileViewer';
 import { Modal } from '../components/Modal';
+import { SubManagerModuleShell } from '../components/SubManagerModuleShell';
 import { Toast } from '../components/Toast';
 import { useApp } from '../context';
 import { buildDocumentationModeModel } from '../documentationModel';
@@ -799,7 +798,6 @@ function ProjectCard({
 export function PageB() {
   const { state, dispatch } = useApp();
   const subManagerLabel = getSecondarySubManagerLabel('B');
-  const [showManagerMobile, setShowManagerMobile] = useState(false);
   const [showManifestView, setShowManifestView] = useState(false);
   const [showAuditManifestView, setShowAuditManifestView] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -2637,40 +2635,12 @@ export function PageB() {
 
   return (
     <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-2">
-        <div className="ui-surface app-short-landscape-flex flex items-center justify-between gap-3 px-3 py-2 sm:hidden">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            Sub-Manager Panel
-          </div>
-          <button
-            data-docs-manager-toggle
-            className="ui-button min-h-9 px-3 text-xs text-neutral-700"
-            onClick={() => setShowManagerMobile((value) => !value)}
-          >
-            {showManagerMobile ? 'Hide Sub-Manager' : 'Show Sub-Manager'}
-          </button>
-        </div>
-
-        {showManagerMobile && (
-          <div className="app-frame app-short-landscape-flex flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
-            <AgentPanel agent="manager" managerDisplayName={subManagerLabel} />
-          </div>
-        )}
-
-        <div className="app-frame app-short-landscape-flex flex min-h-0 flex-1 overflow-hidden sm:hidden">
-          {documentationContent}
-        </div>
-
-        <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
-          <AgentPanel
-            agent="manager"
-            managerDisplayName={subManagerLabel}
-            className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]"
-          />
-          <DividerRail />
-          {documentationContent}
-        </div>
-      </div>
+      <SubManagerModuleShell
+        managerDisplayName={subManagerLabel}
+        mobileToggleDataAttr="data-docs-manager-toggle"
+      >
+        {documentationContent}
+      </SubManagerModuleShell>
 
       {openFile && openProject && (
         <FileViewer
