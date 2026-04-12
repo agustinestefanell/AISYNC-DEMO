@@ -7,14 +7,18 @@ import {
   getAgentPanelForwardTargets,
   isValidAgentPanelForwardTarget,
 } from '../reviewForwardPolicy';
-import type { AgentRole, FileType, Message } from '../types';
+import { createSavedObjectStorageEntry } from '../savedObjects';
+import type { AgentRole, DocumentationOriginWorkspace, FileType, Message } from '../types';
 import {
+  createCheckpointActivityEvent,
+  createCheckpointSavedObject,
   createWorkspaceVersion,
   createWorkspaceVersionEvent,
   formatWorkspaceVersionTimestamp,
 } from '../versioning';
 import { ContextUploadModal, type ContextUploadItem } from './ContextUploadModal';
 import { LockIconButton } from './LockIconButton';
+import { MessageSelectionToggle } from './MessageSelectionToggle';
 import { Modal } from './Modal';
 import { SaveBackupModal } from './SaveBackupModal';
 import { Toast } from './Toast';
@@ -87,8 +91,26 @@ export interface AgentPanelProps {
   editableRole?: boolean;
   auditSourcePage?: 'A';
   managerDisplayName?: string;
+  selectionScope?: string;
+  panelScope?: string;
+  sourceWorkspace?: DocumentationOriginWorkspace;
+  sourcePanelId?: string;
+  sourcePanelLabel?: string;
   className?: string;
   style?: CSSProperties;
+}
+
+function buildHandoffMinimumContext(messages: Message[]) {
+  if (messages.length === 0) {
+    return 'No selected context available.';
+  }
+
+  const excerpt = messages
+    .map((message) => `${message.senderLabel}: ${message.content.trim()}`)
+    .join(' ')
+    .slice(0, 280);
+
+  return `${messages.length} selected message(s). ${excerpt}${excerpt.length >= 280 ? '...' : ''}`;
 }
 
 export function AgentPanel({
@@ -97,15 +119,29 @@ export function AgentPanel({
   editableRole = false,
   auditSourcePage,
   managerDisplayName,
+  selectionScope,
+  panelScope,
+  sourceWorkspace = 'main-workspace',
+  sourcePanelId,
+  sourcePanelLabel,
   className,
   style,
 }: AgentPanelProps) {
-  const { state, dispatch, saveFile } = useApp();
-  const messages = state.messages[agent];
-  const selectedIds = state.selectedMessages[agent];
-  const draft = state.drafts[agent];
-  const documentLocked = state.documentLocks[agent];
-  const workspaceVersions = state.workspaceVersions[agent];
+  const { state, dispatch, saveSelection, createHandoff } = useApp();
+  const resolvedSelectionScope = selectionScope ?? agent;
+  const resolvedPanelScope = panelScope ?? agent;
+  const messages = state.messages[resolvedPanelScope] ?? state.messages[agent] ?? [];
+  const selectedIds = state.selectedMessages[resolvedSelectionScope] ?? [];
+  const draft = state.drafts[resolvedPanelScope] ?? state.drafts[agent] ?? '';
+  const documentLocked = state.documentLocks[resolvedPanelScope] ?? state.documentLocks[agent] ?? false;
+  const workspaceVersions =
+    state.workspaceVersions[resolvedPanelScope] ?? state.workspaceVersions[agent] ?? [];
+  const resolvedPanelId = sourcePanelId ?? resolvedPanelScope;
+  const resolvedPanelLabel =
+    sourcePanelLabel ??
+    (agent === 'manager'
+      ? managerDisplayName ?? PANEL_NAMES.manager
+      : PANEL_NAMES[agent]);
   const viewportRef = useRef<HTMLDivElement>(null);
   const isManager = agent === 'manager';
   const rolePanelClass =
@@ -139,9 +175,9 @@ export function AgentPanel({
   const [editingRole, setEditingRole] = useState(false);
   const [forwardTarget, setForwardTarget] = useState('');
   const [fileTitle, setFileTitle] = useState('');
-  const [fileType, setFileType] = useState<FileType>('Conversation');
+  const [fileType] = useState<FileType>('Conversation');
   const [projectId, setProjectId] = useState(state.projects[0]?.id ?? '');
-  const [eventDate, setEventDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saveTimestamp, setSaveTimestamp] = useState(new Date().toISOString());
 
   const targetOptions = useMemo(
     () => getAgentPanelForwardTargets(agent, managerDisplayName),
@@ -151,6 +187,7 @@ export function AgentPanel({
     () => messages.filter((message) => selectedIds.includes(message.id)),
     [messages, selectedIds],
   );
+  const hasSelection = selectedIds.length > 0;
   const latestVersion = workspaceVersions[workspaceVersions.length - 1] ?? null;
   const versionSummary = latestVersion
     ? `Version ${latestVersion.versionNumber} - Saved ${formatWorkspaceVersionTimestamp(
@@ -169,7 +206,7 @@ export function AgentPanel({
   useEffect(() => {
     if (showSaveModal) {
       setProjectId((current) => current || state.projects[0]?.id || '');
-      setEventDate(new Date().toISOString().slice(0, 10));
+      setSaveTimestamp(new Date().toISOString());
       setFileTitle(`Session_${agent}_${new Date().toISOString().slice(0, 10)}`);
     }
   }, [agent, showSaveModal, state.projects]);
@@ -203,7 +240,7 @@ export function AgentPanel({
 
   const sendMessage = () => {
     if (documentLocked) {
-      setToast('Document lock is active. Unlock this panel to send new content.');
+      setToast('Panel lock is active. Unlock panel to send new content.');
       return;
     }
 
@@ -214,6 +251,7 @@ export function AgentPanel({
     dispatch({
       type: 'ADD_MESSAGE',
       agent,
+      panelScope: resolvedPanelScope,
       message: {
         id: createMessageId(),
         role: 'user',
@@ -223,7 +261,7 @@ export function AgentPanel({
         senderLabel: 'User',
       },
     });
-    dispatch({ type: 'SET_DRAFT', agent, value: '' });
+    dispatch({ type: 'SET_DRAFT', agent, value: '', panelScope: resolvedPanelScope });
 
     window.setTimeout(() => {
       const replyBank = STUB_REPLIES[agent];
@@ -231,6 +269,7 @@ export function AgentPanel({
       dispatch({
         type: 'ADD_MESSAGE',
         agent,
+        panelScope: resolvedPanelScope,
         message: {
           id: createMessageId(),
           role: 'agent',
@@ -245,7 +284,7 @@ export function AgentPanel({
 
   const handleForward = () => {
     if (documentLocked) {
-      setToast('Document lock is active. Unlock this panel to review and forward.');
+      setToast('Panel lock is active. Unlock panel to review and forward.');
       return;
     }
 
@@ -311,13 +350,99 @@ export function AgentPanel({
       return;
     }
 
-    dispatch({ type: 'CLEAR_SELECTION', agent });
+    dispatch({ type: 'CLEAR_SELECTION', agent, selectionScope: resolvedSelectionScope });
+    dispatch({
+      type: 'ADD_ACTIVITY_EVENT',
+      event: {
+        id: `activity_${Date.now()}`,
+        eventType: 'review-forward',
+        createdAt: new Date().toISOString(),
+        actor: state.userName,
+        sourceWorkspace,
+        sourceTeamId: 'global',
+        sourceTeamLabel: 'Main Workspace',
+        sourcePanelId: resolvedPanelId,
+        sourcePanelLabel: resolvedPanelLabel,
+        projectId: state.projects[0]?.id ?? 'project_1',
+        relatedObjectId: null,
+        detail: `Reviewed and forwarded ${orderedMessages.length} message(s) to ${target.label}`,
+        metadata: {
+          destinationLabel: target.label,
+          selectedCount: orderedMessages.length,
+        },
+      },
+    });
     setToast(`Reviewed & forwarded ${orderedMessages.length} message(s) to ${target.label}.`);
+  };
+
+  const handleCreateHandoff = () => {
+    if (documentLocked) {
+      setToast('Panel lock is active. Unlock panel to create a handoff package.');
+      return;
+    }
+
+    if (selectedIds.length === 0) {
+      setToast('Select messages first to create a handoff package.');
+      return;
+    }
+
+    const target =
+      targetOptions.find((option) => option.id === forwardTarget) ?? null;
+    if (!target) {
+      setToast('Choose a valid handoff destination inside the current hierarchy.');
+      return;
+    }
+
+    const orderedMessages = messages.filter((message) => selectedIds.includes(message.id));
+    const project = state.projects.find((item) => item.id === projectId) ?? state.projects[0];
+    const destination =
+      target.kind === 'team-sub-manager'
+        ? {
+            workspace: 'team-workspace' as const,
+            teamId: target.teamId ?? null,
+            teamLabel: target.label,
+            panelId: target.nodeId ?? `${target.teamId ?? 'team'}-sub-manager`,
+            panelLabel: target.label,
+          }
+        : {
+            workspace: 'main-workspace' as const,
+            teamId: 'global',
+            teamLabel: 'Main Workspace',
+            panelId: `main-${target.agentRole ?? 'manager'}`,
+            panelLabel: target.label,
+          };
+
+    createHandoff({
+      title: `Handoff | ${getAgentLabel(agent)} -> ${target.label}`,
+      projectId: project?.id ?? projectId,
+      sourceWorkspace,
+      sourceTeamId: 'global',
+      sourceTeamLabel: 'Main Workspace',
+      sourcePanelId: resolvedPanelId,
+      sourcePanelLabel: resolvedPanelLabel,
+      destinationWorkspace: destination.workspace,
+      destinationTeamId: destination.teamId,
+      destinationTeamLabel: destination.teamLabel,
+      destinationPanelId: destination.panelId,
+      destinationPanelLabel: destination.panelLabel,
+      transferredMessages: orderedMessages.map((message) => ({
+        id: message.id,
+        senderLabel: message.senderLabel,
+        timestamp: message.timestamp,
+        content: message.content,
+      })),
+      transferredContent: buildSaveContent(orderedMessages),
+      objective: `Transfer reviewed work from ${getAgentLabel(agent)} to ${target.label}.`,
+      minimumContext: buildHandoffMinimumContext(orderedMessages),
+      riskNotes: documentLocked ? ['Source panel was locked at handoff time.'] : [],
+    });
+    dispatch({ type: 'CLEAR_SELECTION', agent, selectionScope: resolvedSelectionScope });
+    setToast(`Handoff package created for ${target.label}.`);
   };
 
   const handleAuditAnswer = () => {
     if (documentLocked) {
-      setToast('Document lock is active. Unlock this panel to audit the selected content.');
+      setToast('Panel lock is active. Unlock panel to audit the selected content.');
       return;
     }
 
@@ -347,15 +472,23 @@ export function AgentPanel({
       return;
     }
 
-    saveFile({
+    saveSelection({
       agent,
       content: buildSaveContent(selectedMessages),
       title: fileTitle.trim() || `Session_${agent}_${new Date().toISOString().slice(0, 10)}`,
       type: fileType,
       projectId,
-      date: eventDate,
+      selectedMessages: selectedMessages.map((message) => ({
+        id: message.id,
+        senderLabel: message.senderLabel,
+        timestamp: message.timestamp,
+        content: message.content,
+      })),
+      date: saveTimestamp.slice(0, 10),
+      sourcePanelId: resolvedPanelId,
+      sourcePanelLabel: resolvedPanelLabel,
     });
-    dispatch({ type: 'CLEAR_SELECTION', agent });
+    dispatch({ type: 'CLEAR_SELECTION', agent, selectionScope: resolvedSelectionScope });
     setShowSaveModal(false);
     setShowSaveSelection(false);
     setToast('Saved to Documentation Mode.');
@@ -369,6 +502,7 @@ export function AgentPanel({
       return;
     }
 
+    setSaveTimestamp(new Date().toISOString());
     setShowSaveModal(true);
   };
 
@@ -394,6 +528,32 @@ export function AgentPanel({
       type: 'SAVE_WORKSPACE_VERSION',
       agent,
       version,
+      panelScope: resolvedPanelScope,
+    });
+    const checkpoint = createCheckpointSavedObject({
+      version,
+      projectId: state.projects[0]?.id ?? 'project_1',
+      projectLabel: state.projects[0]?.name ?? state.projects[0]?.id ?? 'project_1',
+      createdBy: state.userName,
+      sourceWorkspace,
+      sourceTeamId: 'global',
+      sourceTeamLabel: 'Main Workspace',
+      sourcePanelId: resolvedPanelId,
+      sourcePanelLabel: resolvedPanelLabel,
+      threadId: resolvedPanelScope,
+      threadLabel: resolvedPanelLabel,
+    });
+    dispatch({
+      type: 'SAVE_SAVED_OBJECT',
+      object: checkpoint,
+      storageEntry: createSavedObjectStorageEntry(checkpoint),
+    });
+    dispatch({
+      type: 'ADD_ACTIVITY_EVENT',
+      event: createCheckpointActivityEvent({
+        checkpoint,
+        actor: state.userName,
+      }),
     });
     dispatch({
       type: 'ADD_CALENDAR_EVENT',
@@ -402,15 +562,15 @@ export function AgentPanel({
         projectId: state.projects[0]?.id ?? 'project_1',
         agent,
         userLabel: state.userName,
-        sourceLabel: getAgentLabel(agent),
+        sourceLabel: resolvedPanelLabel,
         teamId: 'global',
         teamLabel: 'Main Workspace',
-        threadLabel: getAgentLabel(agent),
-        actorLabel: getAgentLabel(agent),
+        threadLabel: resolvedPanelLabel,
+        actorLabel: resolvedPanelLabel,
         managerLabel: 'AI General Manager',
         workerLabel: agent === 'manager' ? undefined : getAgentLabel(agent),
         versionSource: 'main',
-        versionThreadId: agent,
+        versionThreadId: resolvedPanelScope,
       }),
     });
     setToast(`Version ${version.versionNumber} saved.`);
@@ -491,6 +651,7 @@ export function AgentPanel({
                 type: 'SET_DOCUMENT_LOCK',
                 agent,
                 value: !documentLocked,
+                panelScope: resolvedPanelScope,
               })
             }
           />
@@ -504,10 +665,10 @@ export function AgentPanel({
       >
         <div className="ui-chat-tools-row">
           <button className="ui-chat-prompt shrink-0" onClick={openPromptsLibrary}>
-            + Prompts
+            Prompt Library
           </button>
           <button className="ui-chat-prompt shrink-0" onClick={() => setShowContextModal(true)}>
-            Upload Context
+            Add Context File
           </button>
         </div>
       </div>
@@ -531,22 +692,17 @@ export function AgentPanel({
                 className={`ui-chat-message-row group flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <button
-                    className={`mt-1 h-4 w-4 rounded border transition-colors ${
-                      isSelected
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
-                        : 'border-neutral-300 bg-white hover:border-neutral-500'
-                    }`}
+                  <MessageSelectionToggle
+                    selected={isSelected}
                     onClick={() =>
                       dispatch({
                         type: 'TOGGLE_SELECT_MESSAGE',
                         agent,
+                        selectionScope: resolvedSelectionScope,
                         messageId: message.id,
                       })
                     }
-                  >
-                    <span className="sr-only">Select message</span>
-                  </button>
+                  />
                 )}
 
                 <button
@@ -555,6 +711,7 @@ export function AgentPanel({
                     dispatch({
                       type: 'TOGGLE_SELECT_MESSAGE',
                       agent,
+                      selectionScope: resolvedSelectionScope,
                       messageId: message.id,
                     })
                   }
@@ -572,7 +729,7 @@ export function AgentPanel({
                           : isManager
                             ? 'ui-message-bubble border-[rgba(164,145,102,0.14)]'
                             : 'ui-message-bubble'
-                    } ${isSelected ? 'ring-2 ring-[rgba(0,122,255,0.18)]' : ''}`}
+                    } ${isSelected ? 'ui-message-bubble-selected' : ''}`}
                   >
                     {isForwarded ? (
                       <>
@@ -590,22 +747,17 @@ export function AgentPanel({
                 </button>
 
                 {isUser && (
-                  <button
-                    className={`mt-1 h-4 w-4 rounded border transition-colors ${
-                      isSelected
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
-                        : 'border-neutral-300 bg-white hover:border-neutral-500'
-                    }`}
+                  <MessageSelectionToggle
+                    selected={isSelected}
                     onClick={() =>
                       dispatch({
                         type: 'TOGGLE_SELECT_MESSAGE',
                         agent,
+                        selectionScope: resolvedSelectionScope,
                         messageId: message.id,
                       })
                     }
-                  >
-                    <span className="sr-only">Select message</span>
-                  </button>
+                  />
                 )}
               </div>
             );
@@ -623,13 +775,13 @@ export function AgentPanel({
             className="ui-chat-composer-input"
             placeholder={
               documentLocked
-                ? 'Document locked. Unlock to message this panel.'
+                ? 'Panel locked. Unlock panel to send new content.'
                 : `Message ${MODEL_LABELS[agent]}...`
             }
             value={draft}
             disabled={documentLocked}
             onChange={(event) =>
-              dispatch({ type: 'SET_DRAFT', agent, value: event.target.value })
+              dispatch({ type: 'SET_DRAFT', agent, value: event.target.value, panelScope: resolvedPanelScope })
             }
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
@@ -680,10 +832,28 @@ export function AgentPanel({
               Review & Forward
             </button>
           </div>
+          <button
+            className="ui-button ui-button-primary ui-chat-action-button px-3 text-xs text-white disabled:cursor-not-allowed disabled:opacity-45"
+            onClick={handleCreateHandoff}
+            title="Create a formal handoff package from the selected messages and destination above"
+            disabled={documentLocked || selectedIds.length === 0 || targetOptions.length === 0}
+          >
+            Create Handoff Package
+          </button>
         </div>
 
-        {(showSaveSelection || selectedIds.length > 0 || contextItems.length > 0) && (
+        {(showSaveSelection || hasSelection || contextItems.length > 0) && (
           <div className="mt-2 grid gap-2">
+            {hasSelection && (
+              <div className="ui-surface-subtle px-3 py-2 text-[11px] text-neutral-700">
+                Handoff package uses the current selection and the destination set above:
+                <span className="ml-1 font-medium text-neutral-900">
+                  {selectedIds.length} message{selectedIds.length === 1 ? '' : 's'} {'->'}{' '}
+                  {targetOptions.find((option) => option.id === forwardTarget)?.label ?? 'No destination'}
+                </span>
+              </div>
+            )}
+
             {showSaveSelection && (
               <div className="ui-surface-subtle flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[11px] text-neutral-700">
                 <div>
@@ -704,7 +874,11 @@ export function AgentPanel({
                   <button
                     className="ui-button min-h-7 px-3 text-[11px] text-neutral-700"
                     onClick={() => {
-                      dispatch({ type: 'CLEAR_SELECTION', agent });
+                      dispatch({
+                        type: 'CLEAR_SELECTION',
+                        agent,
+                        selectionScope: resolvedSelectionScope,
+                      });
                       setShowSaveSelection(false);
                     }}
                   >
@@ -726,10 +900,16 @@ export function AgentPanel({
               </div>
             )}
 
-            {selectedIds.length > 0 && !showSaveSelection && (
+            {hasSelection && !showSaveSelection && (
               <button
                 className="mt-1 text-[11px] text-neutral-500 underline-offset-2 hover:underline"
-                onClick={() => dispatch({ type: 'CLEAR_SELECTION', agent })}
+                onClick={() =>
+                  dispatch({
+                    type: 'CLEAR_SELECTION',
+                    agent,
+                    selectionScope: resolvedSelectionScope,
+                  })
+                }
               >
                 Clear selection
               </button>
@@ -755,16 +935,18 @@ export function AgentPanel({
               className="ui-button px-3 text-xs text-neutral-700 disabled:cursor-not-allowed disabled:opacity-45"
               onClick={handleSaveVersion}
               disabled={messages.length === 0}
+              title="Create an operational checkpoint of the current workspace state"
             >
               Save Version
             </button>
             <button
               className={`ui-button px-3 text-xs ${
-                showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
+                hasSelection || showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
               }`}
               onClick={openSaveBackup}
+              title="Save the selected messages"
             >
-              Save / Backup
+              {hasSelection ? `Save Selection${selectedIds.length > 1 ? ` (${selectedIds.length})` : ''}` : 'Save Selection'}
             </button>
             {auditSourcePage ? (
               <button
@@ -797,8 +979,8 @@ export function AgentPanel({
             <button
               className="ui-button text-neutral-700"
               onClick={() => {
-                dispatch({ type: 'RESET_CHAT', agent });
-                dispatch({ type: 'CLEAR_SELECTION', agent });
+                dispatch({ type: 'RESET_CHAT', agent, panelScope: resolvedPanelScope });
+                dispatch({ type: 'CLEAR_SELECTION', agent, selectionScope: resolvedSelectionScope });
                 setShowRefreshConfirm(false);
                 setShowSaveSelection(false);
                 setToast('Seed session restored.');
@@ -809,8 +991,8 @@ export function AgentPanel({
             <button
               className="ui-button ui-button-primary text-white"
               onClick={() => {
-                dispatch({ type: 'CLEAR_CHAT', agent });
-                dispatch({ type: 'CLEAR_SELECTION', agent });
+                dispatch({ type: 'CLEAR_CHAT', agent, panelScope: resolvedPanelScope });
+                dispatch({ type: 'CLEAR_SELECTION', agent, selectionScope: resolvedSelectionScope });
                 setShowRefreshConfirm(false);
                 setShowSaveSelection(false);
                 setToast('Session cleared.');
@@ -828,13 +1010,9 @@ export function AgentPanel({
         selectedMessages={selectedMessages}
         fileTitle={fileTitle}
         onFileTitleChange={setFileTitle}
-        fileType={fileType}
-        onFileTypeChange={(value) => setFileType(value as FileType)}
-        projectId={projectId}
-        onProjectIdChange={setProjectId}
-        eventDate={eventDate}
-        onEventDateChange={setEventDate}
-        projects={state.projects}
+        projectLabel={state.projects.find((project) => project.id === projectId)?.name ?? projectId}
+        sourceLabel={getAgentLabel(agent)}
+        saveTimestamp={saveTimestamp}
         onSave={handleSave}
       />
 

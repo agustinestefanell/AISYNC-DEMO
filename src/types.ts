@@ -25,6 +25,29 @@ export type DocumentationViewMode =
 export type DocumentationManifestStatus = 'active' | 'archived' | 'promoted';
 export type DocumentationRecordClass = 'team-record' | 'agent-record' | 'working-record';
 export type DocumentationSensitivityLevel = 'internal' | 'confidential' | 'restricted';
+export type SavedObjectType =
+  | 'session-backup'
+  | 'checkpoint'
+  | 'saved-selection'
+  | 'handoff-package'
+  | 'source-document-reference'
+  | 'derived-document';
+export type SavedObjectStatus = 'active' | 'draft' | 'archived' | 'finalized';
+export type ActivityLifecycleEventType =
+  | 'refresh'
+  | 'lock'
+  | 'unlock'
+  | 'save-selection'
+  | 'save-version'
+  | 'session-backup'
+  | 'review-forward'
+  | 'handoff'
+  | 'resume'
+  | 'moved'
+  | 'extracted'
+  | 'missing'
+  | 'deleted'
+  | 'audit-ai-answer';
 export type DocumentationDocumentState =
   | 'Draft'
   | 'In Progress'
@@ -82,6 +105,173 @@ export interface SavedFile {
   type: FileType;
   content: string;
   createdAt: string;
+}
+
+export interface SavedObjectMessageRecord {
+  id: string;
+  senderLabel: string;
+  timestamp: string;
+  content: string;
+}
+
+export interface SavedObjectProvenance {
+  sourceObjectIds: string[];
+  messageIds: string[];
+  sourceThreadId?: string | null;
+  sourceVersionId?: string | null;
+  sourceFileId?: string | null;
+  note?: string | null;
+}
+
+export interface SavedObjectBase {
+  id: string;
+  objectType: SavedObjectType;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  sourceWorkspace: DocumentationOriginWorkspace;
+  sourceTeamId: string | null;
+  sourceTeamLabel: string | null;
+  sourcePanelId: string;
+  sourcePanelLabel: string;
+  createdBy: string;
+  projectId: string;
+  projectLabel: string | null;
+  provenance: SavedObjectProvenance;
+  status: SavedObjectStatus;
+  savePurpose?: string | null;
+  automaticTags: string[];
+  userTags: string[];
+}
+
+export interface SessionBackupObject extends SavedObjectBase {
+  objectType: 'session-backup';
+  payload: {
+    threadId: string;
+    threadLabel: string;
+    messages: SavedObjectMessageRecord[];
+    draft: string;
+    locked: boolean;
+    snapshotContent: string;
+  };
+}
+
+export interface CheckpointObject extends SavedObjectBase {
+  objectType: 'checkpoint';
+  payload: {
+    threadId: string;
+    threadLabel: string;
+    versionNumber: number;
+    messageCount: number;
+    locked: boolean;
+    draft: string;
+    snapshotContent: string;
+    legacyVersionId: string;
+  };
+}
+
+export interface SavedSelectionObject extends SavedObjectBase {
+  objectType: 'saved-selection';
+  payload: {
+    messageIds: string[];
+    selectedMessages: SavedObjectMessageRecord[];
+    content: string;
+    selectionCount: number;
+    fileType: FileType;
+    legacyFileId: string;
+  };
+}
+
+export interface HandoffPackageObject extends SavedObjectBase {
+  objectType: 'handoff-package';
+  payload: {
+    handoffTitle: string;
+    origin: {
+      workspace: DocumentationOriginWorkspace;
+      teamId: string | null;
+      teamLabel: string | null;
+      panelId: string;
+      panelLabel: string;
+    };
+    destination: {
+      workspace: DocumentationOriginWorkspace;
+      teamId: string | null;
+      teamLabel: string | null;
+      panelId: string | null;
+      panelLabel: string;
+    };
+    actor: string;
+    issuedAt: string;
+    objective: string;
+    minimumContext: string;
+    transferredMessageIds: string[];
+    transferredMessages: SavedObjectMessageRecord[];
+    transferredContent: string;
+    linkedCheckpointId: string | null;
+    linkedSourceDocumentIds: string[];
+    linkedDerivedDocumentIds: string[];
+    linkedSourceObjectIds: string[];
+    riskNotes: string[];
+    continuityExpected: string;
+  };
+}
+
+export interface SourceDocumentReferenceObject extends SavedObjectBase {
+  objectType: 'source-document-reference';
+  payload: {
+    referenceTitle: string;
+    referencePath: string;
+    linkedFileId: string | null;
+    linkedSavedObjectId: string | null;
+    recordClass: string | null;
+  };
+}
+
+export interface DerivedDocumentObject extends SavedObjectBase {
+  objectType: 'derived-document';
+  payload: {
+    documentKind: string;
+    content: string;
+    sourceObjectIds: string[];
+    linkedFileId: string | null;
+  };
+}
+
+export type SavedObject =
+  | SessionBackupObject
+  | CheckpointObject
+  | SavedSelectionObject
+  | HandoffPackageObject
+  | SourceDocumentReferenceObject
+  | DerivedDocumentObject;
+
+export interface ActivityLifecycleEvent {
+  id: string;
+  eventType: ActivityLifecycleEventType;
+  createdAt: string;
+  actor: string;
+  sourceWorkspace: DocumentationOriginWorkspace;
+  sourceTeamId: string | null;
+  sourceTeamLabel: string | null;
+  sourcePanelId: string;
+  sourcePanelLabel: string;
+  projectId: string | null;
+  relatedObjectId: string | null;
+  relatedLegacyFileId?: string | null;
+  detail: string;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface SavedObjectStorageEntry {
+  objectId: string;
+  objectType: SavedObjectType;
+  storageKey: string;
+  directory: string;
+  bodyFileName: string;
+  metaFileName: string;
+  bodyContent: string;
+  metadata: SavedObject;
+  updatedAt: string;
 }
 
 export interface DocumentationRepositoryRoot {
@@ -161,7 +351,7 @@ export interface DocumentationAgentManifest extends DocumentationManifestBase {
 
 export interface DocumentationIndexEntry {
   id: string;
-  entryKind: 'team' | 'agent' | 'file';
+  entryKind: 'team' | 'agent' | 'file' | 'saved-object';
   teamId: string;
   teamLabel: string;
   agentId: string | null;
@@ -175,6 +365,8 @@ export interface DocumentationIndexEntry {
   auditEventIds: string[];
   path: string;
   relatedFileId?: string;
+  relatedObjectId?: string;
+  objectType?: SavedObjectType | null;
 }
 
 export type DocumentationAuditEventKind =
@@ -183,7 +375,8 @@ export type DocumentationAuditEventKind =
   | 'state-changed'
   | 'locked'
   | 'unlocked'
-  | 'version-advanced';
+  | 'version-advanced'
+  | 'handoff';
 export type DocumentationKnowledgeNodeType =
   | 'document'
   | 'project'
@@ -218,6 +411,10 @@ export interface DocumentationAuditEntry {
   path: string;
   auditEventIds: string[];
   relatedFileId?: string;
+  relatedObjectId?: string;
+  objectType?: SavedObjectType | null;
+  sourcePanelLabel?: string | null;
+  automaticTags?: string[];
 }
 
 export interface DocumentationKnowledgeNode {
@@ -250,7 +447,7 @@ export interface DocumentationKnowledgeEdge {
 
 export interface DocumentationRepositoryItem {
   id: string;
-  itemType: 'team-folder' | 'agent-unit' | 'file' | 'workspace-agent';
+  itemType: 'team-folder' | 'agent-unit' | 'file' | 'workspace-agent' | 'saved-object';
   title: string;
   teamId: string;
   teamLabel: string;
@@ -273,6 +470,11 @@ export interface DocumentationRepositoryItem {
   documentVersion: string | null;
   lastResponsible: string | null;
   relatedFileId?: string;
+  relatedObjectId?: string;
+  objectType?: SavedObjectType | null;
+  sourcePanelLabel?: string | null;
+  automaticTags?: string[];
+  provenanceSummary?: string | null;
 }
 
 export interface DocumentationModeModel {
@@ -385,6 +587,7 @@ export interface WorkspaceVersionReference {
   threadId: string;
   agent?: AgentRole;
   teamId?: string;
+  panelScope?: string;
 }
 
 export interface AuditAnswerRoutingTarget {
@@ -432,13 +635,16 @@ export interface AppState {
   currentPage: Page;
   projectName: string;
   userName: string;
-  messages: Record<AgentRole, Message[]>;
-  selectedMessages: Record<AgentRole, string[]>;
-  drafts: Record<AgentRole, string>;
-  documentLocks: Record<AgentRole, boolean>;
-  workspaceVersions: Record<AgentRole, WorkspaceVersion[]>;
+  messages: Record<string, Message[]>;
+  selectedMessages: Record<string, string[]>;
+  drafts: Record<string, string>;
+  documentLocks: Record<string, boolean>;
+  workspaceVersions: Record<string, WorkspaceVersion[]>;
   documentationRoot: DocumentationRepositoryRoot;
   projects: Project[];
+  savedObjects: SavedObject[];
+  savedObjectStorage: SavedObjectStorageEntry[];
+  activityEvents: ActivityLifecycleEvent[];
   savedFiles: SavedFile[];
   calendarEvents: CalendarEvent[];
   workerRoles: {

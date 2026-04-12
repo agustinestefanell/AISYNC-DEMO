@@ -1,4 +1,5 @@
 import type {
+  ActivityLifecycleEvent,
   AgentRole,
   DocumentationAuditEntry,
   DocumentationKnowledgeEdge,
@@ -14,6 +15,7 @@ import type {
   DocumentationTeamManifest,
   DocumentationViewDefinition,
   Message,
+  SavedObject,
   SavedFile,
   TeamsGraphNode,
   TeamsNodeType,
@@ -64,7 +66,7 @@ const DOCUMENTATION_MODE_VIEWS: DocumentationViewDefinition[] = [
 
 function getMainWorkspaceAgentLabel(
   agent: AgentRole,
-  messages: Record<AgentRole, Message[]>,
+  messages: Record<string, Message[]>,
 ) {
   const firstLabel = messages[agent][0]?.senderLabel?.trim();
   if (firstLabel) {
@@ -153,7 +155,85 @@ function getAuditEventLabel(kind: DocumentationAuditEntry['eventKind']) {
   if (kind === 'state-changed') return 'State changed';
   if (kind === 'locked') return 'Locked';
   if (kind === 'unlocked') return 'Unlocked';
+  if (kind === 'handoff') return 'Handoff issued';
   return 'Version advanced';
+}
+
+function getSavedObjectDocumentKind(savedObject: SavedObject) {
+  if (savedObject.objectType === 'checkpoint') return 'Checkpoint';
+  if (savedObject.objectType === 'saved-selection') return 'Saved Selection';
+  if (savedObject.objectType === 'handoff-package') return 'Handoff Package';
+  if (savedObject.objectType === 'source-document-reference') return 'Source Document Reference';
+  if (savedObject.objectType === 'derived-document') return savedObject.payload.documentKind || 'Derived Document';
+  return 'Session Backup';
+}
+
+function getSavedObjectDocumentState(savedObject: SavedObject) {
+  if (savedObject.objectType === 'checkpoint') {
+    return savedObject.payload.locked ? ('Locked' as const) : ('Approved' as const);
+  }
+  if (savedObject.objectType === 'handoff-package') {
+    return savedObject.status === 'archived' ? ('Approved' as const) : ('Under Review' as const);
+  }
+  if (savedObject.objectType === 'saved-selection') {
+    return savedObject.status === 'finalized' ? ('Approved' as const) : ('In Progress' as const);
+  }
+  if (savedObject.objectType === 'source-document-reference') {
+    return 'Approved' as const;
+  }
+  if (savedObject.objectType === 'derived-document') {
+    if (savedObject.status === 'finalized') return 'Approved' as const;
+    if (savedObject.status === 'draft') return 'Draft' as const;
+    return 'In Progress' as const;
+  }
+  if (savedObject.status === 'draft') return 'Draft' as const;
+  return 'In Progress' as const;
+}
+
+function getSavedObjectVersionLabel(savedObject: SavedObject) {
+  if (savedObject.objectType === 'checkpoint') {
+    return `v${savedObject.payload.versionNumber}`;
+  }
+  return null;
+}
+
+function getSavedObjectProvenanceSummary(savedObject: SavedObject) {
+  const segments: string[] = [];
+
+  if (savedObject.provenance.sourceVersionId) {
+    segments.push(`version:${savedObject.provenance.sourceVersionId}`);
+  }
+  if (savedObject.provenance.sourceFileId) {
+    segments.push(`file:${savedObject.provenance.sourceFileId}`);
+  }
+  if (savedObject.provenance.sourceObjectIds.length > 0) {
+    segments.push(`${savedObject.provenance.sourceObjectIds.length} linked object(s)`);
+  }
+  if (savedObject.provenance.messageIds.length > 0) {
+    segments.push(`${savedObject.provenance.messageIds.length} message(s)`);
+  }
+
+  return segments.length > 0 ? segments.join(' · ') : savedObject.provenance.note ?? null;
+}
+
+function getSavedObjectAuditKind(event: ActivityLifecycleEvent): DocumentationAuditEntry['eventKind'] {
+  if (event.eventType === 'save-version') return 'version-advanced';
+  if (event.eventType === 'handoff') return 'handoff';
+  if (event.eventType === 'lock') return 'locked';
+  if (event.eventType === 'unlock') return 'unlocked';
+  if (event.eventType === 'save-selection') return 'created';
+  if (event.eventType === 'audit-ai-answer') return 'state-changed';
+  return 'updated';
+}
+
+function getSavedObjectAuditLabel(event: ActivityLifecycleEvent) {
+  if (event.eventType === 'save-selection') return 'Saved Selection created';
+  if (event.eventType === 'save-version') return 'Checkpoint created';
+  if (event.eventType === 'handoff') return 'Handoff issued';
+  if (event.eventType === 'resume') return 'Resumed from saved state';
+  if (event.eventType === 'review-forward') return 'Reviewed and forwarded';
+  if (event.eventType === 'audit-ai-answer') return 'Audit AI Answer triggered';
+  return getAuditEventLabel(getSavedObjectAuditKind(event));
 }
 
 function slugify(value: string) {
@@ -218,20 +298,24 @@ function getTopLevelDocumentationTeams(teamsGraph: TeamsGraphNode[]) {
 export function buildDocumentationModeModel({
   root,
   teamsGraph,
+  savedObjects,
+  activityEvents,
   savedFiles,
   calendarEvents,
   mainWorkspace,
 }: {
   root: DocumentationRepositoryRoot;
   teamsGraph: TeamsGraphNode[];
+  savedObjects: SavedObject[];
+  activityEvents: ActivityLifecycleEvent[];
   savedFiles: SavedFile[];
   calendarEvents: CalendarEvent[];
   mainWorkspace: {
     projectName: string;
     userName: string;
-    messages: Record<AgentRole, Message[]>;
-    workspaceVersions: Record<AgentRole, WorkspaceVersion[]>;
-    documentLocks: Record<AgentRole, boolean>;
+    messages: Record<string, Message[]>;
+    workspaceVersions: Record<string, WorkspaceVersion[]>;
+    documentLocks: Record<string, boolean>;
   };
 }): DocumentationModeModel {
   const now = new Date().toISOString();
@@ -620,6 +704,106 @@ export function buildDocumentationModeModel({
     },
   );
 
+  const documentationSavedObjects = savedObjects.filter(
+    (savedObject) => savedObject.objectType !== 'session-backup',
+  );
+  const activityEventsByObjectId = activityEvents.reduce<Record<string, ActivityLifecycleEvent[]>>(
+    (accumulator, event) => {
+      if (!event.relatedObjectId) {
+        return accumulator;
+      }
+
+      accumulator[event.relatedObjectId] = [...(accumulator[event.relatedObjectId] ?? []), event];
+      return accumulator;
+    },
+    {},
+  );
+
+  const savedObjectRepositoryItems: DocumentationRepositoryItem[] = documentationSavedObjects.map((savedObject) => {
+    const documentState = getSavedObjectDocumentState(savedObject);
+    const documentVersion = getSavedObjectVersionLabel(savedObject);
+    const relatedEvents = activityEventsByObjectId[savedObject.id] ?? [];
+    const fallbackTeamId = savedObject.sourceWorkspace === 'main-workspace' ? 'main-workspace' : 'global';
+    const fallbackTeamLabel = savedObject.sourceWorkspace === 'main-workspace' ? 'Main Workspace' : 'Global';
+    const relatedFileId =
+      savedObject.objectType === 'saved-selection'
+        ? savedObject.payload.legacyFileId
+        : savedObject.objectType === 'source-document-reference'
+          ? savedObject.payload.linkedFileId ?? undefined
+          : savedObject.objectType === 'derived-document'
+            ? savedObject.payload.linkedFileId ?? undefined
+            : undefined;
+    const conversationLabel =
+      savedObject.objectType === 'checkpoint'
+        ? savedObject.payload.threadLabel
+        : savedObject.objectType === 'handoff-package'
+          ? savedObject.payload.origin.panelLabel
+          : savedObject.sourcePanelLabel;
+
+    return {
+      id: `repo_object_${savedObject.id}`,
+      itemType: 'saved-object',
+      title: savedObject.title,
+      teamId: savedObject.sourceTeamId ?? fallbackTeamId,
+      teamLabel: savedObject.sourceTeamLabel ?? fallbackTeamLabel,
+      projectLabel: savedObject.projectLabel ?? savedObject.projectId,
+      documentKind: getSavedObjectDocumentKind(savedObject),
+      userLabel: savedObject.createdBy,
+      ownerLabel: savedObject.sourcePanelLabel,
+      ownerRole: savedObject.objectType,
+      status: savedObject.status,
+      updatedAt: savedObject.updatedAt,
+      recordClass: 'working-record',
+      path: `/${savedObject.sourceWorkspace}/${savedObject.projectId}/${savedObject.objectType}/${savedObject.id}`,
+      sourceWorkspace: savedObject.sourceWorkspace,
+      sourceConversationLabel: conversationLabel,
+      auditEventIds: relatedEvents.map((event) => event.id),
+      versionCount:
+        savedObject.objectType === 'checkpoint'
+          ? savedObject.payload.versionNumber
+          : savedObject.objectType === 'saved-selection'
+            ? savedObject.payload.selectionCount
+            : null,
+      lockState:
+        savedObject.objectType === 'checkpoint' ? savedObject.payload.locked : null,
+      checkpointLabel:
+        savedObject.objectType === 'checkpoint'
+          ? `Checkpoint ${savedObject.payload.versionNumber}`
+          : savedObject.objectType === 'handoff-package'
+            ? 'Formal handoff package'
+            : null,
+      documentState,
+      documentVersion,
+      lastResponsible: savedObject.createdBy,
+      relatedFileId,
+      relatedObjectId: savedObject.id,
+      objectType: savedObject.objectType,
+      sourcePanelLabel: savedObject.sourcePanelLabel,
+      automaticTags: savedObject.automaticTags,
+      provenanceSummary: getSavedObjectProvenanceSummary(savedObject),
+    };
+  });
+
+  const savedObjectIndexEntries: DocumentationIndexEntry[] = savedObjectRepositoryItems.map((item) => ({
+    id: `index_object_${item.relatedObjectId ?? item.id}`,
+    entryKind: 'saved-object',
+    teamId: item.teamId,
+    teamLabel: item.teamLabel,
+    agentId: null,
+    agentLabel: item.ownerLabel ?? null,
+    agentRole: item.ownerRole,
+    eventId: null,
+    date: item.updatedAt,
+    status: item.documentState ?? item.status,
+    origin: item.sourcePanelLabel ?? item.sourceWorkspace,
+    destination: null,
+    auditEventIds: item.auditEventIds,
+    path: item.path,
+    relatedFileId: item.relatedFileId,
+    relatedObjectId: item.relatedObjectId,
+    objectType: item.objectType ?? null,
+  }));
+
   const auditEntries: DocumentationAuditEntry[] = fileRepositoryItems.flatMap((item) => {
     const file = orderedFiles.find((candidate) => candidate.id === item.relatedFileId);
     if (!file) {
@@ -735,6 +919,73 @@ export function buildDocumentationModeModel({
     );
   });
 
+  const savedObjectAuditEntries: DocumentationAuditEntry[] = savedObjectRepositoryItems.flatMap((item) => {
+    const savedObject = documentationSavedObjects.find((candidate) => candidate.id === item.relatedObjectId);
+    if (!savedObject) {
+      return [];
+    }
+
+    const relatedEvents = (activityEventsByObjectId[savedObject.id] ?? [])
+      .slice()
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+
+    const createdEntry: DocumentationAuditEntry = {
+      id: `audit_object_created_${savedObject.id}`,
+      repositoryItemId: item.id,
+      documentTitle: item.title,
+      eventKind: 'created',
+      eventLabel: `Indexed ${item.documentKind ?? 'saved object'}`,
+      teamId: item.teamId,
+      teamLabel: item.teamLabel,
+      projectLabel: item.projectLabel,
+      documentKind: item.documentKind,
+      userLabel: item.userLabel,
+      responsibleLabel: item.lastResponsible,
+      occurredAt: item.updatedAt,
+      documentState: item.documentState,
+      documentVersion: item.documentVersion,
+      sourceWorkspace: item.sourceWorkspace,
+      recordClass: item.recordClass,
+      path: item.path,
+      auditEventIds: item.auditEventIds,
+      relatedFileId: item.relatedFileId,
+      relatedObjectId: savedObject.id,
+      objectType: savedObject.objectType,
+      sourcePanelLabel: savedObject.sourcePanelLabel,
+      automaticTags: savedObject.automaticTags,
+    };
+
+    const eventEntries = relatedEvents.map<DocumentationAuditEntry>((event) => ({
+      id: `audit_object_${event.id}`,
+      repositoryItemId: item.id,
+      documentTitle: item.title,
+      eventKind: getSavedObjectAuditKind(event),
+      eventLabel: getSavedObjectAuditLabel(event),
+      teamId: item.teamId,
+      teamLabel: item.teamLabel,
+      projectLabel: item.projectLabel,
+      documentKind: item.documentKind,
+      userLabel: savedObject.createdBy,
+      responsibleLabel: event.actor,
+      occurredAt: event.createdAt,
+      documentState: item.documentState,
+      documentVersion: item.documentVersion,
+      sourceWorkspace: item.sourceWorkspace,
+      recordClass: item.recordClass,
+      path: item.path,
+      auditEventIds: [event.id],
+      relatedFileId: item.relatedFileId,
+      relatedObjectId: savedObject.id,
+      objectType: savedObject.objectType,
+      sourcePanelLabel: event.sourcePanelLabel,
+      automaticTags: savedObject.automaticTags,
+    }));
+
+    return [createdEntry, ...eventEntries].sort((left, right) =>
+      (right.occurredAt ?? '').localeCompare(left.occurredAt ?? ''),
+    );
+  });
+
   const knowledgeNodesById = new Map<string, DocumentationKnowledgeNode>();
   const knowledgeEdgesById = new Map<string, DocumentationKnowledgeEdge>();
 
@@ -750,7 +1001,7 @@ export function buildDocumentationModeModel({
     }
   };
 
-  fileRepositoryItems.forEach((item) => {
+  [...fileRepositoryItems, ...savedObjectRepositoryItems].forEach((item) => {
     const documentNodeId = `knowledge:document:${item.id}`;
     const workspaceLabel =
       item.sourceWorkspace === 'main-workspace'
@@ -902,14 +1153,17 @@ export function buildDocumentationModeModel({
     agentUnits: Array.from(agentUnitsById.values()),
     teamManifests,
     agentManifests,
-    indexEntries: [...teamIndexEntries, ...agentIndexEntries, ...fileIndexEntries],
+    indexEntries: [...teamIndexEntries, ...agentIndexEntries, ...fileIndexEntries, ...savedObjectIndexEntries],
     repositoryItems: [
       ...fileRepositoryItems,
+      ...savedObjectRepositoryItems,
       ...mainWorkspaceRepositoryItems,
       ...agentRepositoryItems,
       ...teamRepositoryItems,
     ],
-    auditEntries,
+    auditEntries: [...auditEntries, ...savedObjectAuditEntries].sort(
+      (left, right) => (right.occurredAt ?? '').localeCompare(left.occurredAt ?? ''),
+    ),
     knowledgeMap: {
       nodes: Array.from(knowledgeNodesById.values()),
       edges: Array.from(knowledgeEdgesById.values()),

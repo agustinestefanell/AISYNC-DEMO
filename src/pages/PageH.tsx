@@ -26,6 +26,8 @@ type CheckpointRecord = {
   threadId: string;
   teamId?: string;
   agent?: AgentRole;
+  panelScope?: string;
+  page?: 'A' | 'B' | 'C' | 'E';
   workspaceTarget?: SecondaryWorkspaceTarget;
   version: WorkspaceVersion;
 };
@@ -68,6 +70,7 @@ function buildVersionTarget(checkpoint: CheckpointRecord): WorkspaceVersionRefer
     threadId: checkpoint.threadId,
     agent: checkpoint.agent,
     teamId: checkpoint.teamId,
+    panelScope: checkpoint.panelScope,
   };
 }
 
@@ -84,9 +87,73 @@ function matchesSelectedVersion(
     checkpoint.version.id === target.versionId &&
     checkpoint.threadId === target.threadId &&
     (target.source === 'main'
-      ? checkpoint.agent === target.agent
+      ? checkpoint.agent === target.agent && (checkpoint.panelScope ?? undefined) === (target.panelScope ?? undefined)
       : checkpoint.teamId === target.teamId)
   );
+}
+
+function getMainScopeConfig(scope: string) {
+  if (scope === 'manager') {
+    return {
+      agent: 'manager' as const,
+      accentColor: MAIN_AGENT_ACCENTS.manager,
+      workspaceLabel: 'Main Workspace',
+      threadLabel: MAIN_AGENT_LABELS.manager,
+      page: 'A' as const,
+    };
+  }
+
+  if (scope === 'worker1') {
+    return {
+      agent: 'worker1' as const,
+      accentColor: MAIN_AGENT_ACCENTS.worker1,
+      workspaceLabel: 'Main Workspace',
+      threadLabel: MAIN_AGENT_LABELS.worker1,
+      page: 'A' as const,
+    };
+  }
+
+  if (scope === 'worker2') {
+    return {
+      agent: 'worker2' as const,
+      accentColor: MAIN_AGENT_ACCENTS.worker2,
+      workspaceLabel: 'Main Workspace',
+      threadLabel: MAIN_AGENT_LABELS.worker2,
+      page: 'A' as const,
+    };
+  }
+
+  if (scope === 'page-b:manager') {
+    return {
+      agent: 'manager' as const,
+      accentColor: MAIN_AGENT_ACCENTS.manager,
+      workspaceLabel: 'Documentation Mode',
+      threadLabel: 'Documentation Manager',
+      page: 'B' as const,
+    };
+  }
+
+  if (scope === 'page-c:manager') {
+    return {
+      agent: 'manager' as const,
+      accentColor: MAIN_AGENT_ACCENTS.manager,
+      workspaceLabel: 'Audit Log',
+      threadLabel: 'Audit Log Manager',
+      page: 'C' as const,
+    };
+  }
+
+  if (scope === 'page-e:manager') {
+    return {
+      agent: 'manager' as const,
+      accentColor: MAIN_AGENT_ACCENTS.manager,
+      workspaceLabel: 'Prompts Library',
+      threadLabel: 'Prompts Manager',
+      page: 'E' as const,
+    };
+  }
+
+  return null;
 }
 
 export function PageH() {
@@ -100,19 +167,27 @@ export function PageH() {
   const teamsState = useMemo(getInitialTeamsMapState, []);
 
   const checkpoints = useMemo<CheckpointRecord[]>(() => {
-    const mainCheckpoints: CheckpointRecord[] = (['manager', 'worker1', 'worker2'] as AgentRole[])
-      .flatMap((agent) =>
-        state.workspaceVersions[agent].map((version) => ({
-          id: `main:${agent}:${version.id}`,
+    const mainCheckpoints: CheckpointRecord[] = Object.entries(state.workspaceVersions).flatMap(
+      ([scope, versions]) => {
+        const config = getMainScopeConfig(scope);
+        if (!config) {
+          return [];
+        }
+
+        return versions.map((version) => ({
+          id: `main:${scope}:${version.id}`,
           source: 'main' as const,
-          accentColor: MAIN_AGENT_ACCENTS[agent],
-          workspaceLabel: 'Main Workspace',
-          threadLabel: MAIN_AGENT_LABELS[agent],
-          threadId: agent,
-          agent,
+          accentColor: config.accentColor,
+          workspaceLabel: config.workspaceLabel,
+          threadLabel: config.threadLabel,
+          threadId: scope,
+          agent: config.agent,
+          panelScope: scope === config.agent ? undefined : scope,
+          page: config.page,
           version,
-        })),
-      );
+        }));
+      },
+    );
 
     const teamCheckpoints: CheckpointRecord[] = Object.entries(secondaryWorkspaceStore).flatMap(
       ([workspaceRootId, threads]) => {
@@ -234,11 +309,47 @@ export function PageH() {
 
   const handleResumeWork = (checkpoint: CheckpointRecord) => {
     const resumeDraft = buildResumeDraft(checkpoint);
+    const relatedCheckpoint =
+      state.savedObjects.find(
+        (savedObject) =>
+          savedObject.objectType === 'checkpoint' &&
+          savedObject.payload.legacyVersionId === checkpoint.version.id,
+      ) ?? null;
+
+    dispatch({
+      type: 'ADD_ACTIVITY_EVENT',
+      event: {
+        id: `activity_${Date.now()}`,
+        eventType: 'resume',
+        createdAt: new Date().toISOString(),
+        actor: state.userName,
+        sourceWorkspace:
+          checkpoint.source === 'main' ? 'main-workspace' : 'team-workspace',
+        sourceTeamId: checkpoint.source === 'team' ? checkpoint.teamId ?? null : 'global',
+        sourceTeamLabel: checkpoint.workspaceLabel,
+        sourcePanelId: checkpoint.threadId,
+        sourcePanelLabel: checkpoint.threadLabel,
+        projectId: relatedCheckpoint?.projectId ?? state.projects[0]?.id ?? null,
+        relatedObjectId: relatedCheckpoint?.id ?? null,
+        detail: `Resume Work opened from ${checkpoint.threadLabel}`,
+        metadata: {
+          versionNumber: checkpoint.version.versionNumber,
+          workspace: checkpoint.workspaceLabel,
+        },
+      },
+    });
 
     if (checkpoint.source === 'main' && checkpoint.agent) {
-      dispatch({ type: 'SET_DRAFT', agent: checkpoint.agent, value: resumeDraft });
-      dispatch({ type: 'SET_WORKSPACE_FOCUS', agent: checkpoint.agent });
-      dispatch({ type: 'SET_PAGE', page: 'A' });
+      dispatch({
+        type: 'SET_DRAFT',
+        agent: checkpoint.agent,
+        value: resumeDraft,
+        panelScope: checkpoint.panelScope,
+      });
+      if ((checkpoint.page ?? 'A') === 'A') {
+        dispatch({ type: 'SET_WORKSPACE_FOCUS', agent: checkpoint.agent });
+      }
+      dispatch({ type: 'SET_PAGE', page: checkpoint.page ?? 'A' });
       return;
     }
 
@@ -271,6 +382,17 @@ export function PageH() {
     dispatch({ type: 'OPEN_WORKSPACE_VERSION_HISTORY' });
   };
 
+  const backToAuditLog = () => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.searchParams.set('page', 'C');
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    dispatch({ type: 'SET_PAGE', page: 'C' });
+  };
+
   if (state.selectedWorkspaceVersion || versionTargetFromLocation) {
     return (
       <div className="app-page-shell h-full min-h-0 min-w-0 overflow-hidden px-2 py-2 sm:px-3 sm:py-3">
@@ -288,8 +410,8 @@ export function PageH() {
                   This detail view is the operational bridge between Audit Log and resumable work.
                 </p>
               </div>
-              <button className="ui-button px-3 text-xs text-neutral-700" onClick={openHistory}>
-                View History
+              <button className="ui-button px-3 text-xs text-neutral-700" onClick={backToAuditLog}>
+                Back to Audit Log
               </button>
             </div>
           </div>
@@ -303,6 +425,9 @@ export function PageH() {
                   to inspect the currently saved checkpoints.
                 </p>
                 <div className="mt-4 flex justify-center">
+                  <button className="ui-button px-3 text-xs text-neutral-700" onClick={backToAuditLog}>
+                    Back to Audit Log
+                  </button>
                   <button className="ui-button ui-button-primary text-white" onClick={openHistory}>
                     View History
                   </button>
@@ -319,6 +444,9 @@ export function PageH() {
                   <div className="mt-1 text-sm text-neutral-700">
                     Resume Work opens the original workspace and loads this checkpoint into the
                     destination draft without destructive restore.
+                  </div>
+                  <div className="mt-2 text-[11px] text-neutral-500">
+                    Route: Audit Log {'->'} Saved Chat Detail {'->'} View History {'->'} Resume Work
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">

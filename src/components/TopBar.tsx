@@ -1,6 +1,6 @@
 import { useApp } from '../context';
 import { CROSS_VERIFICATION_TEAM_ID, getTeamTheme } from '../data/teams';
-import { getTopRibbonSectionLabel } from '../pageLabels';
+import { getTopRibbonSectionLabel, getTopRibbonSectionNote } from '../pageLabels';
 
 export function TopBar() {
   const { state } = useApp();
@@ -14,6 +14,7 @@ export function TopBar() {
     state.currentPage,
     state.secondaryWorkspace?.label,
   );
+  const sectionNote = getTopRibbonSectionNote(state.currentPage);
 
   return (
     <header
@@ -33,9 +34,16 @@ export function TopBar() {
         </div>
 
         <div className="ui-topbar-section min-w-0 px-1 text-center">
-          <span className="inline-block max-w-full truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-white/92 sm:text-sm">
-            {sectionLabel}
-          </span>
+          <div className="flex flex-col items-center justify-center">
+            <span className="inline-block max-w-full truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-white/92 sm:text-sm">
+              {sectionLabel}
+            </span>
+            {sectionNote ? (
+              <span className="inline-block max-w-full truncate text-[9px] font-medium tracking-[0.06em] text-white/62 sm:text-[10px]">
+                {sectionNote}
+              </span>
+            ) : null}
+          </div>
         </div>
 
         <div className="ui-topbar-meta flex min-w-0 flex-col items-end gap-0.5 text-right text-[10px] text-white/78 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:text-xs">

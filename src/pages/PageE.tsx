@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AgentPanel } from '../components/AgentPanel';
+import { CollapsibleManagerSidebar } from '../components/CollapsibleManagerSidebar';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
 import { useApp } from '../context';
-import { DividerRail } from '../components/DividerRail';
 import { getSecondarySubManagerLabel } from '../pageLabels';
 import type { PromptItem, PromptVisibility } from '../types';
 
@@ -384,11 +384,12 @@ export function PageE() {
   };
 
   const handleUsePrompt = (prompt: PromptItem) => {
-    const nextValue = state.drafts.manager
-      ? `${state.drafts.manager}\n\n${prompt.promptText}`
+    const promptDraft = state.drafts['page-e:manager'] ?? state.drafts.manager ?? '';
+    const nextValue = promptDraft
+      ? `${promptDraft}\n\n${prompt.promptText}`
       : prompt.promptText;
 
-    dispatch({ type: 'SET_DRAFT', agent: 'manager', value: nextValue });
+    dispatch({ type: 'SET_DRAFT', agent: 'manager', value: nextValue, panelScope: 'page-e:manager' });
     touchPrompt(prompt.id, prompt.visibility);
     setToast(`Inserted into ${subManagerLabel}`);
   };
@@ -620,7 +621,7 @@ export function PageE() {
                 {filteredPrompts.length} prompt{filteredPrompts.length === 1 ? '' : 's'} visible
               </div>
               <div className="text-xs text-neutral-500">
-                Sub-Manager draft length: {state.drafts.manager.length} chars
+                Sub-Manager draft length: {(state.drafts['page-e:manager'] ?? state.drafts.manager ?? '').length} chars
               </div>
             </div>
 
@@ -723,7 +724,13 @@ export function PageE() {
 
         {showManagerMobile && (
           <div className="app-frame app-short-landscape-flex flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
-            <AgentPanel agent="manager" managerDisplayName={subManagerLabel} />
+            <AgentPanel
+              agent="manager"
+              managerDisplayName={subManagerLabel}
+              selectionScope="page-e:manager"
+              panelScope="page-e:manager"
+              sourceWorkspace="documentation-mode"
+            />
           </div>
         )}
 
@@ -732,12 +739,13 @@ export function PageE() {
         </div>
 
         <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
-          <AgentPanel
-            agent="manager"
+          <CollapsibleManagerSidebar
             managerDisplayName={subManagerLabel}
             className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]"
+            storageKey="aisync_sm_sidebar_page_e"
+            selectionScope="page-e:manager"
+            panelScope="page-e:manager"
           />
-          <DividerRail />
           {promptsContent}
         </div>
       </div>

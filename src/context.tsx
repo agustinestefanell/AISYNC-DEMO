@@ -1,15 +1,21 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react';
 import type {
+  ActivityLifecycleEvent,
   AIProvider,
   AgentRole,
   AuditAnswerPayload,
   AppState,
   CalendarEvent,
+  CheckpointObject,
+  DocumentationOriginWorkspace,
   DocumentationRepositoryRoot,
   FileType,
   Message,
   Page,
   Project,
+  SavedObject,
+  SavedObjectMessageRecord,
+  SavedObjectStorageEntry,
   SavedFile,
   SecondaryWorkspaceTarget,
   WorkspaceVersionReference,
@@ -18,9 +24,40 @@ import type {
 } from './types';
 import { seedCalendarEvents, seedFiles, seedMessages, seedProjects } from './data/seed';
 import { DEFAULT_WORK_PHASE_STATE } from './phaseState';
+import {
+  buildAutomaticTags,
+  createHandoffActivityEvent,
+  createHandoffPackageObject,
+  createSavedObjectStorageEntry,
+  restoreSavedObjectFromStorage,
+} from './savedObjects';
 
 const STORAGE_KEY = 'aisync_demo_state_v3';
 export const GENERAL_MANAGER_LABEL = 'AI General Manager';
+
+function getSelectionScopeKey(agent: AgentRole, selectionScope?: string) {
+  return selectionScope?.trim() || agent;
+}
+
+function getPanelScopeKey(agent: AgentRole, panelScope?: string) {
+  return panelScope?.trim() || agent;
+}
+
+function mergeDefinedRecord<T>(base: Record<string, T>, incoming?: Partial<Record<string, T>>) {
+  const merged: Record<string, T> = { ...base };
+
+  if (!incoming) {
+    return merged;
+  }
+
+  Object.entries(incoming).forEach(([key, value]) => {
+    if (value !== undefined) {
+      merged[key] = value;
+    }
+  });
+
+  return merged;
+}
 
 type Action =
   | { type: 'SET_PAGE'; page: Page }
@@ -33,29 +70,34 @@ type Action =
   | { type: 'HYDRATE_PERSISTED_STATE'; persisted: PersistedState }
   | { type: 'SET_CROSS_VERIFICATION_DRAFT'; value: string }
   | { type: 'CLEAR_CROSS_VERIFICATION_CONTEXT' }
-  | { type: 'ADD_MESSAGE'; agent: AgentRole; message: Message }
-  | { type: 'TOGGLE_SELECT_MESSAGE'; agent: AgentRole; messageId: string }
-  | { type: 'CLEAR_SELECTION'; agent: AgentRole }
-  | { type: 'RESET_CHAT'; agent: AgentRole }
-  | { type: 'CLEAR_CHAT'; agent: AgentRole }
-  | { type: 'SET_DOCUMENT_LOCK'; agent: AgentRole; value: boolean }
-  | { type: 'SAVE_WORKSPACE_VERSION'; agent: AgentRole; version: WorkspaceVersion }
+  | { type: 'ADD_MESSAGE'; agent: AgentRole; message: Message; panelScope?: string }
+  | { type: 'TOGGLE_SELECT_MESSAGE'; agent: AgentRole; messageId: string; selectionScope?: string }
+  | { type: 'CLEAR_SELECTION'; agent: AgentRole; selectionScope?: string }
+  | { type: 'RESET_CHAT'; agent: AgentRole; panelScope?: string }
+  | { type: 'CLEAR_CHAT'; agent: AgentRole; panelScope?: string }
+  | { type: 'SET_DOCUMENT_LOCK'; agent: AgentRole; value: boolean; panelScope?: string }
+  | { type: 'SAVE_WORKSPACE_VERSION'; agent: AgentRole; version: WorkspaceVersion; panelScope?: string }
+  | { type: 'SAVE_SAVED_OBJECT'; object: SavedObject; storageEntry: SavedObjectStorageEntry; legacyFile?: SavedFile }
+  | { type: 'ADD_ACTIVITY_EVENT'; event: ActivityLifecycleEvent }
   | { type: 'ADD_CALENDAR_EVENT'; event: CalendarEvent }
   | { type: 'SAVE_FILE'; file: SavedFile; event: CalendarEvent }
   | { type: 'ADD_PROJECT'; project: Project }
   | { type: 'SET_WORKER_ROLE'; worker: 'worker1' | 'worker2'; role: string }
-  | { type: 'SET_DRAFT'; agent: AgentRole; value: string }
+  | { type: 'SET_DRAFT'; agent: AgentRole; value: string; panelScope?: string }
   | { type: 'SAVE_WORKER_CONFIG'; config: WorkerConfig };
 
 interface PersistedState {
   projectName?: string;
   userName?: string;
   documentationRoot?: DocumentationRepositoryRoot;
-  messages?: Partial<Record<AgentRole, Message[]>>;
-  drafts?: Partial<Record<AgentRole, string>>;
-  documentLocks?: Partial<Record<AgentRole, boolean>>;
-  workspaceVersions?: Partial<Record<AgentRole, WorkspaceVersion[]>>;
+  messages?: Partial<Record<string, Message[]>>;
+  drafts?: Partial<Record<string, string>>;
+  documentLocks?: Partial<Record<string, boolean>>;
+  workspaceVersions?: Partial<Record<string, WorkspaceVersion[]>>;
   projects?: Project[];
+  savedObjects?: SavedObject[];
+  savedObjectStorage?: SavedObjectStorageEntry[];
+  activityEvents?: ActivityLifecycleEvent[];
   savedFiles?: SavedFile[];
   calendarEvents?: CalendarEvent[];
   workerRoles?: {
@@ -104,6 +146,9 @@ function buildSeedState(): AppState {
       updatedAt: now,
     },
     projects: seedProjects,
+    savedObjects: [],
+    savedObjectStorage: [],
+    activityEvents: [],
     savedFiles: seedFiles,
     calendarEvents: seedCalendarEvents,
     workerRoles: {
@@ -144,9 +189,23 @@ function getTeamIdFromLabel(teamLabel?: string) {
   }
   if (teamLabel === 'SM-Legal') return 'team_legal';
   if (teamLabel === 'SM-Marketing') return 'team_marketing';
-  if (teamLabel === 'W-Clients / Projects') return 'team_clients';
+  if (teamLabel === 'W-Clients / Projects' || teamLabel === 'SM-Clients / Projects') return 'team_clients';
   if (teamLabel === 'Cross Verification') return 'team_cross_verification';
   return undefined;
+}
+
+function getSourceWorkspaceFromLabel(sourceLabel?: string): DocumentationOriginWorkspace {
+  if (!sourceLabel) return 'main-workspace';
+  if (sourceLabel.includes('Cross Verification')) return 'cross-verification';
+  if (sourceLabel.includes('Documentation Mode')) return 'documentation-mode';
+  if (sourceLabel.includes('SM-') || sourceLabel.includes('Sub-Manager') || sourceLabel.includes('W-')) {
+    return 'team-workspace';
+  }
+  return 'main-workspace';
+}
+
+function createSavedObjectMessageRecords(messages: SavedObjectMessageRecord[]) {
+  return messages.map((message) => ({ ...message }));
 }
 
 function normalizeCalendarEvent(event: CalendarEvent, userName: string): CalendarEvent {
@@ -224,44 +283,36 @@ function resolvePersistedState(parsed: PersistedState, seed: AppState) {
       file.phaseState ?? seedPhaseByFileId.get(file.id) ?? DEFAULT_WORK_PHASE_STATE,
   }));
   const parsedCalendarEvents = parsed.calendarEvents ?? [];
-  const hasModernAuditSeed = parsedCalendarEvents.some((event) =>
-    event.id.startsWith('audit_evt_'),
+  const calendarEventMap = new Map(
+    seed.calendarEvents.map((event) => [event.id, event] as const),
   );
-  const preservedCustomEvents = parsedCalendarEvents.filter(
-    (event) => !event.id.startsWith('evt_') && !event.id.startsWith('audit_evt_'),
-  );
-  const calendarEvents = (hasModernAuditSeed
-    ? parsedCalendarEvents
-    : [...seed.calendarEvents, ...preservedCustomEvents]
-  )
+  parsedCalendarEvents.forEach((event) => {
+    calendarEventMap.set(event.id, event);
+  });
+  const calendarEvents = Array.from(calendarEventMap.values())
     .map((event) => normalizeCalendarEvent(event, resolvedUserName))
     .sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`));
+  const savedObjectStorage =
+    parsed.savedObjectStorage ??
+    (parsed.savedObjects ?? seed.savedObjects).map((savedObject) =>
+      createSavedObjectStorageEntry(savedObject),
+    );
+  const savedObjects = (parsed.savedObjects ?? seed.savedObjects).length
+    ? (parsed.savedObjects ?? seed.savedObjects)
+    : savedObjectStorage.map((entry) => restoreSavedObjectFromStorage(entry));
 
   return {
     projectName: parsed.projectName ?? seed.projectName,
     userName: resolvedUserName,
     documentationRoot: parsed.documentationRoot ?? seed.documentationRoot,
-    messages: {
-      manager: parsed.messages?.manager ?? seed.messages.manager,
-      worker1: parsed.messages?.worker1 ?? seed.messages.worker1,
-      worker2: parsed.messages?.worker2 ?? seed.messages.worker2,
-    },
-    drafts: {
-      manager: parsed.drafts?.manager ?? '',
-      worker1: parsed.drafts?.worker1 ?? '',
-      worker2: parsed.drafts?.worker2 ?? '',
-    },
-    documentLocks: {
-      manager: parsed.documentLocks?.manager ?? seed.documentLocks.manager,
-      worker1: parsed.documentLocks?.worker1 ?? seed.documentLocks.worker1,
-      worker2: parsed.documentLocks?.worker2 ?? seed.documentLocks.worker2,
-    },
-    workspaceVersions: {
-      manager: parsed.workspaceVersions?.manager ?? seed.workspaceVersions.manager,
-      worker1: parsed.workspaceVersions?.worker1 ?? seed.workspaceVersions.worker1,
-      worker2: parsed.workspaceVersions?.worker2 ?? seed.workspaceVersions.worker2,
-    },
+    messages: mergeDefinedRecord(seed.messages, parsed.messages),
+    drafts: mergeDefinedRecord(seed.drafts, parsed.drafts),
+    documentLocks: mergeDefinedRecord(seed.documentLocks, parsed.documentLocks),
+    workspaceVersions: mergeDefinedRecord(seed.workspaceVersions, parsed.workspaceVersions),
     projects: parsed.projects ?? seed.projects,
+    savedObjects,
+    savedObjectStorage,
+    activityEvents: parsed.activityEvents ?? seed.activityEvents,
     savedFiles,
     calendarEvents,
     workerRoles: {
@@ -333,81 +384,111 @@ function reducer(state: AppState, action: Action): AppState {
         crossVerificationDraft: '',
       };
     case 'ADD_MESSAGE':
+      {
+        const panelKey = getPanelScopeKey(action.agent, action.panelScope);
+        const currentMessages =
+          state.messages[panelKey] ?? state.messages[action.agent] ?? [];
       return {
         ...state,
         messages: {
           ...state.messages,
-          [action.agent]: [...state.messages[action.agent], action.message],
+          [panelKey]: [...currentMessages, action.message],
         },
       };
+      }
     case 'TOGGLE_SELECT_MESSAGE': {
-      const current = state.selectedMessages[action.agent];
+      const selectionKey = getSelectionScopeKey(action.agent, action.selectionScope);
+      const current = state.selectedMessages[selectionKey] ?? [];
       const exists = current.includes(action.messageId);
       return {
         ...state,
         selectedMessages: {
           ...state.selectedMessages,
-          [action.agent]: exists
+          [selectionKey]: exists
             ? current.filter((id) => id !== action.messageId)
             : [...current, action.messageId],
         },
       };
     }
-    case 'CLEAR_SELECTION':
+    case 'CLEAR_SELECTION': {
+      const selectionKey = getSelectionScopeKey(action.agent, action.selectionScope);
       return {
         ...state,
         selectedMessages: {
           ...state.selectedMessages,
-          [action.agent]: [],
+          [selectionKey]: [],
         },
       };
-    case 'RESET_CHAT':
-      return {
-        ...state,
-        messages: {
-          ...state.messages,
-          [action.agent]: seedMessages[action.agent],
-        },
-        selectedMessages: {
-          ...state.selectedMessages,
-          [action.agent]: [],
-        },
-        drafts: {
-          ...state.drafts,
-          [action.agent]: '',
-        },
-      };
-    case 'CLEAR_CHAT':
+    }
+    case 'RESET_CHAT': {
+      const panelKey = getPanelScopeKey(action.agent, action.panelScope);
       return {
         ...state,
         messages: {
           ...state.messages,
-          [action.agent]: [],
+          [panelKey]: seedMessages[action.agent],
         },
         selectedMessages: {
           ...state.selectedMessages,
-          [action.agent]: [],
+          [panelKey]: [],
         },
         drafts: {
           ...state.drafts,
-          [action.agent]: '',
+          [panelKey]: '',
         },
       };
-    case 'SET_DOCUMENT_LOCK':
+    }
+    case 'CLEAR_CHAT': {
+      const panelKey = getPanelScopeKey(action.agent, action.panelScope);
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [panelKey]: [],
+        },
+        selectedMessages: {
+          ...state.selectedMessages,
+          [panelKey]: [],
+        },
+        drafts: {
+          ...state.drafts,
+          [panelKey]: '',
+        },
+      };
+    }
+    case 'SET_DOCUMENT_LOCK': {
+      const panelKey = getPanelScopeKey(action.agent, action.panelScope);
       return {
         ...state,
         documentLocks: {
           ...state.documentLocks,
-          [action.agent]: action.value,
+          [panelKey]: action.value,
         },
       };
-    case 'SAVE_WORKSPACE_VERSION':
+    }
+    case 'SAVE_WORKSPACE_VERSION': {
+      const panelKey = getPanelScopeKey(action.agent, action.panelScope);
+      const currentVersions =
+        state.workspaceVersions[panelKey] ?? state.workspaceVersions[action.agent] ?? [];
       return {
         ...state,
         workspaceVersions: {
           ...state.workspaceVersions,
-          [action.agent]: [...state.workspaceVersions[action.agent], action.version],
+          [panelKey]: [...currentVersions, action.version],
         },
+      };
+    }
+    case 'SAVE_SAVED_OBJECT':
+      return {
+        ...state,
+        savedObjects: [...state.savedObjects, action.object],
+        savedObjectStorage: [...state.savedObjectStorage, action.storageEntry],
+        savedFiles: action.legacyFile ? [...state.savedFiles, action.legacyFile] : state.savedFiles,
+      };
+    case 'ADD_ACTIVITY_EVENT':
+      return {
+        ...state,
+        activityEvents: [...state.activityEvents, action.event],
       };
     case 'ADD_CALENDAR_EVENT':
       return {
@@ -433,14 +514,16 @@ function reducer(state: AppState, action: Action): AppState {
           [action.worker]: action.role,
         },
       };
-    case 'SET_DRAFT':
+    case 'SET_DRAFT': {
+      const panelKey = getPanelScopeKey(action.agent, action.panelScope);
       return {
         ...state,
         drafts: {
           ...state.drafts,
-          [action.agent]: action.value,
+          [panelKey]: action.value,
         },
       };
+    }
     case 'SAVE_WORKER_CONFIG': {
       const workerRoles = { ...state.workerRoles };
       if (!workerRoles.worker1 || workerRoles.worker1 === 'TBD') {
@@ -473,6 +556,9 @@ function serializeState(state: AppState): PersistedState {
     documentLocks: state.documentLocks,
     workspaceVersions: state.workspaceVersions,
     projects: state.projects,
+    savedObjects: state.savedObjects,
+    savedObjectStorage: state.savedObjectStorage,
+    activityEvents: state.activityEvents,
     savedFiles: state.savedFiles,
     calendarEvents: state.calendarEvents,
     workerRoles: state.workerRoles,
@@ -485,14 +571,17 @@ function getBusinessTime(now = new Date()) {
   return `${String(safeHour).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
 
-interface SaveFileArgs {
+interface SaveSelectionArgs {
   agent: AgentRole;
   content: string;
   title: string;
   type: FileType;
   projectId: string;
+  selectedMessages: SavedObjectMessageRecord[];
   date?: string;
   sourceLabel?: string;
+  sourcePanelId: string;
+  sourcePanelLabel: string;
 }
 
 interface SaveWorkerConfigArgs {
@@ -502,10 +591,34 @@ interface SaveWorkerConfigArgs {
   promptContent: string;
 }
 
+interface CreateHandoffArgs {
+  title: string;
+  projectId: string;
+  sourceWorkspace: DocumentationOriginWorkspace;
+  sourceTeamId: string | null;
+  sourceTeamLabel: string | null;
+  sourcePanelId: string;
+  sourcePanelLabel: string;
+  destinationWorkspace: DocumentationOriginWorkspace;
+  destinationTeamId: string | null;
+  destinationTeamLabel: string | null;
+  destinationPanelId: string | null;
+  destinationPanelLabel: string;
+  transferredMessages: SavedObjectMessageRecord[];
+  transferredContent: string;
+  objective: string;
+  minimumContext: string;
+  riskNotes?: string[];
+  linkedSourceDocumentIds?: string[];
+  linkedDerivedDocumentIds?: string[];
+  linkedSourceObjectIds?: string[];
+}
+
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<Action>;
-  saveFile: (args: SaveFileArgs) => void;
+  saveSelection: (args: SaveSelectionArgs) => void;
+  createHandoff: (args: CreateHandoffArgs) => void;
   saveWorkerConfig: (args: SaveWorkerConfigArgs) => void;
 }
 
@@ -538,9 +651,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const saveFile = ({ agent, content, title, type, projectId, date, sourceLabel }: SaveFileArgs) => {
+  const saveSelection = ({
+    agent,
+    content,
+    title,
+    type,
+    projectId,
+    selectedMessages,
+    date,
+    sourceLabel,
+    sourcePanelId,
+    sourcePanelLabel,
+  }: SaveSelectionArgs) => {
     const createdAt = new Date().toISOString();
     const fileId = `file_${Date.now()}`;
+    const objectId = `saved_selection_${Date.now()}`;
     const projectName =
       state.projects.find((project) => project.id === projectId)?.name ?? projectId;
     const agentLabel = getAgentLabel(agent);
@@ -548,8 +673,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const eventDate = date ?? createdAt.slice(0, 10);
     const sourceSegments = getSourceSegments(sourceLabel);
     const sourceTeamLabel = sourceSegments[0] ?? 'Main Workspace';
+    const sourceTeamId = getTeamIdFromLabel(sourceTeamLabel) ?? null;
     const actorLabel = sourceLabel ?? agentLabel;
     const actionLabel = getDefaultActionLabel(type);
+    const sourceWorkspace = getSourceWorkspaceFromLabel(sourceLabel);
 
     const file: SavedFile = {
       id: fileId,
@@ -561,6 +688,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
       type,
       content,
       createdAt,
+    };
+
+    const savedObject: SavedObject = {
+      id: objectId,
+      objectType: 'saved-selection',
+      title,
+      createdAt,
+      updatedAt: createdAt,
+      sourceWorkspace,
+      sourceTeamId,
+      sourceTeamLabel,
+      sourcePanelId,
+      sourcePanelLabel,
+      createdBy: state.userName,
+      projectId,
+      projectLabel: projectName,
+      provenance: {
+        sourceObjectIds: [],
+        messageIds: selectedMessages.map((message) => message.id),
+        sourceFileId: fileId,
+        note: 'Saved from manual message selection',
+      },
+      status: 'active',
+      savePurpose: 'preserve-useful-selection',
+      automaticTags: buildAutomaticTags({
+        objectType: 'saved-selection',
+        sourceWorkspace,
+        sourceTeamId,
+        sourcePanelId,
+        status: 'active',
+        savePurpose: 'preserve-useful-selection',
+        extraTags: [
+          'action:save-selection',
+          selectedMessages.length > 1 ? 'selection:multi-message' : 'selection:single-message',
+          sourceWorkspace === 'cross-verification' ? 'flow:cross-verification' : '',
+        ],
+      }),
+      userTags: [],
+      payload: {
+        messageIds: selectedMessages.map((message) => message.id),
+        selectedMessages: createSavedObjectMessageRecords(selectedMessages),
+        content,
+        selectionCount: selectedMessages.length,
+        fileType: type,
+        legacyFileId: fileId,
+      },
+    };
+    const storageEntry = createSavedObjectStorageEntry(savedObject);
+
+    const activityEvent: ActivityLifecycleEvent = {
+      id: `activity_${Date.now()}`,
+      eventType: 'save-selection',
+      createdAt,
+      actor: state.userName,
+      sourceWorkspace,
+      sourceTeamId,
+      sourceTeamLabel,
+      sourcePanelId,
+      sourcePanelLabel,
+      projectId,
+      relatedObjectId: objectId,
+      relatedLegacyFileId: fileId,
+      detail: `Saved selection from ${sourcePanelLabel}`,
+      metadata: {
+        selectionCount: selectedMessages.length,
+        fileType: type,
+      },
     };
 
     const event: CalendarEvent = {
@@ -591,7 +785,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       time: getBusinessTime(new Date()),
     };
 
-    dispatch({ type: 'SAVE_FILE', file, event: normalizeCalendarEvent(event, state.userName) });
+    dispatch({ type: 'SAVE_SAVED_OBJECT', object: savedObject, storageEntry, legacyFile: file });
+    dispatch({ type: 'ADD_ACTIVITY_EVENT', event: activityEvent });
+    dispatch({ type: 'ADD_CALENDAR_EVENT', event: normalizeCalendarEvent(event, state.userName) });
   };
 
   const saveWorkerConfig = ({
@@ -613,8 +809,83 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const createHandoff = ({
+    title,
+    projectId,
+    sourceWorkspace,
+    sourceTeamId,
+    sourceTeamLabel,
+    sourcePanelId,
+    sourcePanelLabel,
+    destinationWorkspace,
+    destinationTeamId,
+    destinationTeamLabel,
+    destinationPanelId,
+    destinationPanelLabel,
+    transferredMessages,
+    transferredContent,
+    objective,
+    minimumContext,
+    riskNotes = [],
+    linkedSourceDocumentIds = [],
+    linkedDerivedDocumentIds = [],
+    linkedSourceObjectIds = [],
+  }: CreateHandoffArgs) => {
+    const projectLabel =
+      state.projects.find((project) => project.id === projectId)?.name ?? projectId;
+    const linkedCheckpoint =
+      [...state.savedObjects]
+        .reverse()
+        .find(
+          (savedObject): savedObject is CheckpointObject =>
+            savedObject.objectType === 'checkpoint' &&
+            savedObject.sourcePanelId === sourcePanelId &&
+            savedObject.projectId === projectId,
+        ) ?? null;
+
+    const handoff = createHandoffPackageObject({
+      title,
+      projectId,
+      projectLabel,
+      createdBy: state.userName,
+      sourceWorkspace,
+      sourceTeamId,
+      sourceTeamLabel,
+      sourcePanelId,
+      sourcePanelLabel,
+      destinationWorkspace,
+      destinationTeamId,
+      destinationTeamLabel,
+      destinationPanelId,
+      destinationPanelLabel,
+      transferredMessages: createSavedObjectMessageRecords(transferredMessages),
+      transferredContent,
+      objective,
+      minimumContext,
+      linkedCheckpointId: linkedCheckpoint?.id ?? null,
+      linkedSourceDocumentIds,
+      linkedDerivedDocumentIds,
+      linkedSourceObjectIds,
+      riskNotes,
+      continuityExpected: `Continue the assigned work from ${sourcePanelLabel} into ${destinationPanelLabel}.`,
+    });
+
+    dispatch({
+      type: 'SAVE_SAVED_OBJECT',
+      object: handoff,
+      storageEntry: createSavedObjectStorageEntry(handoff),
+    });
+    dispatch({
+      type: 'ADD_ACTIVITY_EVENT',
+      event: createHandoffActivityEvent({
+        handoff,
+        actor: state.userName,
+      }),
+    });
+  };
+
   return (
-    <AppContext.Provider value={{ state, dispatch, saveFile, saveWorkerConfig }}>
+    <AppContext.Provider value={{ state, dispatch, saveSelection, createHandoff, saveWorkerConfig }}>
       {children}
     </AppContext.Provider>
   );

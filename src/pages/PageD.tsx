@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AgentPanel } from '../components/AgentPanel';
-import { DividerRail } from '../components/DividerRail';
+import { CollapsibleManagerSidebar } from '../components/CollapsibleManagerSidebar';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
 import { useApp } from '../context';
@@ -28,6 +28,98 @@ import type { AIProvider, TeamsGraphNode } from '../types';
 import { getSecondarySubManagerLabel } from '../pageLabels';
 
 type TeamsViewMode = 'map' | 'tree';
+
+function MapAddUserTeamAnchor({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      data-pan-block="true"
+      className="absolute"
+      style={{
+        left: 'calc(100% + 84px)',
+        top: '28px',
+        width: `${MAP_NODE_WIDTH}px`,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute"
+        style={{
+          left: '-84px',
+          top: '96px',
+          width: '84px',
+          borderTop: '2px dashed rgba(100, 116, 139, 0.52)',
+        }}
+      />
+      <button
+        type="button"
+        data-pan-block="true"
+        className="flex min-h-[188px] w-full flex-col items-center justify-center rounded-[22px] border-2 border-dashed px-6 py-6 text-center transition-colors hover:border-neutral-500 hover:bg-white/90"
+        style={{
+          borderColor: 'rgba(100, 116, 139, 0.45)',
+          background:
+            'linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(241,245,249,0.92) 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.78), 0 12px 24px rgba(15,23,42,0.05)',
+        }}
+        onClick={onClick}
+      >
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-neutral-400 bg-white/85 text-[28px] font-semibold leading-none text-neutral-700">
+          +
+        </div>
+        <div className="mt-4 text-[14px] font-semibold text-neutral-900">Connect Team</div>
+        <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-neutral-500">
+          Link external User
+        </div>
+      </button>
+    </div>
+  );
+}
+
+function TreeAddUserTeamAnchor({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      data-pan-block="true"
+      className="absolute"
+      style={{
+        left: 'calc(100% + 64px)',
+        top: '-2px',
+        width: `${TREE_NODE_WIDTH}px`,
+        height: `${TREE_SUB_MANAGER_HEIGHT}px`,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute"
+        style={{
+          left: '-64px',
+          top: '50%',
+          width: '64px',
+          borderTop: '2px dashed rgba(100, 116, 139, 0.52)',
+          transform: 'translateY(-50%)',
+        }}
+      />
+      <button
+        type="button"
+        data-pan-block="true"
+        className="flex h-full w-full flex-col items-center justify-center rounded-[18px] border-2 border-dashed px-2 py-2 text-center transition-colors hover:border-neutral-500 hover:bg-white/90"
+        style={{
+          borderColor: 'rgba(100, 116, 139, 0.45)',
+          background:
+            'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(241,245,249,0.96) 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.75), 0 8px 16px rgba(15,23,42,0.05)',
+        }}
+        onClick={onClick}
+      >
+        <div className="text-[20px] font-semibold leading-none text-neutral-700">+</div>
+        <div className="mt-2 line-clamp-2 text-[11px] font-semibold leading-[1.2] text-neutral-900">
+          Connect Team
+        </div>
+        <div className="mt-1 text-[8px] uppercase tracking-[0.16em] text-neutral-500">
+          Link external User
+        </div>
+      </button>
+    </div>
+  );
+}
 
 function getSavingDefaultShortLabel(value: DocumentationSavingDefault) {
   if (value === 'Documentation Mode') return 'Docs Mode';
@@ -210,7 +302,7 @@ function getMapCardDetails({
       metrics: isPromotedFamily
         ? []
         : [
-            { label: 'Convos', value: String(counts.conversations) },
+            { label: 'Threads', value: String(counts.conversations) },
             { label: 'Docs', value: String(counts.documents) },
             { label: 'Reports', value: String(counts.reports) },
           ],
@@ -228,7 +320,7 @@ function getMapCardDetails({
       brief: narrative.teamBrief,
       tags: [providerLabel, ...narrative.teamTags, `Tag ${teamTag}`],
       metrics: [
-        { label: 'Convos', value: String(counts.conversations) },
+        { label: 'Threads', value: String(counts.conversations) },
         { label: 'Docs', value: String(counts.documents) },
         { label: 'Reports', value: String(counts.reports) },
       ],
@@ -495,7 +587,16 @@ function CanvasViewport({
   );
 
   return (
-    <div className="relative overflow-visible rounded-[20px] border border-neutral-200 bg-[var(--color-surface-soft)] shadow-[var(--shadow-soft)]">
+    <div
+      className="relative overflow-visible rounded-[20px] border shadow-[var(--shadow-soft)]"
+      style={{
+        borderColor: 'rgba(15, 23, 42, 0.12)',
+        background:
+          'linear-gradient(180deg, rgba(232, 238, 244, 0.98) 0%, rgba(223, 231, 239, 0.96) 100%)',
+        boxShadow:
+          'inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(15,23,42,0.08), 0 10px 26px rgba(15,23,42,0.06)',
+      }}
+    >
       <div
         ref={viewportRef}
         className="relative h-[min(72vh,760px)] min-h-[520px] overflow-hidden select-none"
@@ -567,7 +668,13 @@ function CanvasViewport({
           updateZoomAtClientPoint(nextZoom, event.clientX, event.clientY, { markManual: true });
         }}
       >
-        <div className="absolute inset-0 flex items-start justify-center p-3 sm:p-4">
+        <div
+          className="absolute inset-0 flex items-start justify-center p-3 sm:p-4"
+          style={{
+            background:
+              'radial-gradient(circle at top, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(247,250,252,0.74) 0%, rgba(228,235,241,0.42) 100%)',
+          }}
+        >
           <div
             ref={contentRef}
             className={`${contentWidthClass} origin-top`}
@@ -622,6 +729,11 @@ function TreeWorkspaceCard({
   const shellColor = outlineOnly ? accentColor : '#ffffff';
   const cardWidth = compact ? MAP_WORKER_WIDTH : MAP_NODE_WIDTH;
   const hasMetrics = metrics.length > 0;
+  const cardBackground = outlineOnly
+    ? 'linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(245,248,251,0.98) 100%)'
+    : compact
+      ? 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(247,249,252,0.98) 100%)'
+      : 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(250,252,254,0.98) 100%)';
 
   return (
     <div
@@ -630,59 +742,98 @@ function TreeWorkspaceCard({
         width: `${cardWidth}px`,
         minWidth: `${cardWidth}px`,
         borderColor: outlineOnly ? accentColor : borderColor,
-        backgroundColor: softColor,
+        background: cardBackground,
+        boxShadow:
+          compact
+            ? '0 10px 20px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.72)'
+            : '0 14px 30px rgba(15, 23, 42, 0.09), inset 0 1px 0 rgba(255,255,255,0.8)',
       }}
     >
       <div
         className="shrink-0 px-4 py-3"
         style={{
-          backgroundColor: shellBackground,
+          background: outlineOnly
+            ? 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(246,248,251,0.96) 100%)'
+            : `linear-gradient(180deg, ${shellBackground} 0%, ${accentColor} 100%)`,
           color: shellColor,
-          borderBottom: outlineOnly ? `1px solid ${borderColor}` : undefined,
+          borderBottom: `1px solid ${outlineOnly ? borderColor : 'rgba(255,255,255,0.16)'}`,
         }}
       >
-        <div className="text-[10px] uppercase tracking-[0.18em] opacity-75">{subtitle}</div>
+        <div className="text-[10px] uppercase tracking-[0.18em] opacity-70">{subtitle}</div>
         <div className={`mt-1 min-h-[2.8rem] font-semibold ${compact ? 'text-[12px]' : 'text-[14px]'}`}>
           {titleContent ?? title}
         </div>
       </div>
 
-      <div className={`flex min-h-0 flex-1 flex-col gap-3 px-4 py-4 ${compact ? 'text-[10px]' : 'text-[11px]'}`}>
+      <div
+        className={`flex min-h-0 flex-1 flex-col gap-3 px-4 ${compact ? 'py-4 text-[10px]' : hasMetrics ? 'pb-3 pt-4 text-[11px]' : 'py-4 text-[11px]'}`}
+      >
         <div className="grid shrink-0 gap-1.5">
-          <div className="text-[12px] font-semibold leading-[1.35] text-neutral-900">{functionLabel}</div>
+          <div className="text-[12px] font-semibold leading-[1.35] text-neutral-950">{functionLabel}</div>
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-x-2 gap-y-1 text-[10px] leading-[1.3] text-neutral-500">
           {tags.slice(0, compact ? 3 : 4).map((tag) => (
             <span
               key={`${title}_${tag}`}
-              className="font-medium"
-              style={{ color: accentColor }}
+              className="rounded-full border px-2 py-1 font-medium"
+              style={{
+                color: accentColor,
+                borderColor: borderColor,
+                backgroundColor: softColor,
+              }}
             >
               {tag}
             </span>
           ))}
         </div>
 
-        <div className="min-h-[4.35rem] flex-1 rounded-[12px] border border-white/70 bg-white/80 px-3.5 py-3 text-[11px] leading-[1.45] text-neutral-600">
+        <div
+          className="min-h-[4.35rem] flex-1 rounded-[12px] px-3.5 py-3 text-[11px] leading-[1.45] text-neutral-700"
+          style={{
+            border: `1px solid ${borderColor}`,
+            background:
+              'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,250,252,0.9) 100%)',
+          }}
+        >
           {brief}
         </div>
 
         {hasMetrics && (
-          <div className={`grid shrink-0 gap-2 ${metrics.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}>
+          <div className={`grid shrink-0 gap-1.5 ${metrics.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}>
             {metrics.map((metric) => (
-              <div key={`${title}_${metric.label}`} className="text-center">
-                <div className="text-[9px] uppercase tracking-[0.18em] text-neutral-500">{metric.value}</div>
-                <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-neutral-400">{metric.label}</div>
+              <div
+                key={`${title}_${metric.label}`}
+                className="overflow-hidden rounded-[12px] border text-center"
+                style={{
+                  borderColor: borderColor,
+                  backgroundColor: softColor,
+                  minHeight: '54px',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.58)',
+                }}
+              >
+                <div
+                  className="px-2 py-1.5 text-[11px] font-semibold leading-none text-neutral-900"
+                  style={{
+                    background: 'rgba(255,255,255,0.74)',
+                    borderBottom: `1px solid ${getFamilyColor(accentColor, 0.18)}`,
+                  }}
+                >
+                  {metric.label}
+                </div>
+                <div className="px-2 py-1.5 text-[12px] font-semibold leading-none text-neutral-700">
+                  {metric.value}
+                </div>
               </div>
             ))}
           </div>
         )}
 
         <div
-          className={`mt-auto grid shrink-0 gap-2 border-t border-neutral-200/70 pt-3 ${
+          className={`mt-auto grid shrink-0 gap-2 pt-3 ${
             secondaryActionLabel ? 'grid-cols-2' : 'grid-cols-1'
           }`}
+          style={{ borderTop: `1px solid ${borderColor}` }}
         >
           <button
             data-pan-block="true"
@@ -751,7 +902,7 @@ type TreeLayoutResult = {
 
 const MAP_ROOT_WIDTH = 760;
 const MAP_ROOT_HEIGHT = 212;
-const MAP_SUB_MANAGER_HEIGHT = 332;
+const MAP_SUB_MANAGER_HEIGHT = 364;
 const MAP_WORKER_HEIGHT = 312;
 const MAP_LEVEL_GAP = 140;
 const MAP_SIBLING_GAP = 92;
@@ -1101,6 +1252,7 @@ function TreeStructureView({
   onOpenMainWorkspace,
   onOpenWorkspace,
   onEditTeam,
+  onAddUserTeam,
   inlineRename,
   onInlineRenameChange,
   onStartInlineRename,
@@ -1119,6 +1271,7 @@ function TreeStructureView({
   onOpenMainWorkspace: () => void;
   onOpenWorkspace: (node: TeamsGraphNode) => void;
   onEditTeam: (nodeId: string) => void;
+  onAddUserTeam: () => void;
   inlineRename: { nodeId: string; value: string } | null;
   onInlineRenameChange: (value: string) => void;
   onStartInlineRename: (node: TeamsGraphNode) => void;
@@ -1166,8 +1319,17 @@ function TreeStructureView({
       contentWidthClass="inline-flex w-max flex-col items-center"
     >
       <div className="flex flex-col items-center gap-6 pb-4">
-        <div className="rounded-[20px] border border-neutral-200 bg-white px-8 py-5 text-center shadow-[var(--shadow-soft)]">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Main Project</div>
+        <div
+          className="rounded-[20px] border px-8 py-5 text-center"
+          style={{
+            borderColor: 'rgba(15, 23, 42, 0.12)',
+            background:
+              'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(243,247,251,0.98) 100%)',
+            boxShadow:
+              'inset 0 1px 0 rgba(255,255,255,0.7), 0 12px 28px rgba(15,23,42,0.08)',
+          }}
+        >
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Main Project</div>
           <div className="mt-1 text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">{projectName}</div>
         </div>
 
@@ -1175,8 +1337,8 @@ function TreeStructureView({
           layout={layout}
           paddingX={MAP_CANVAS_PADDING_X}
           paddingY={MAP_CANVAS_PADDING_Y}
-          connectorColor="rgba(17,17,17,0.58)"
-          connectorStrokeWidth={1.6}
+          connectorColor="rgba(51,65,85,0.62)"
+          connectorStrokeWidth={1.8}
         >
           {(placement) => {
             const node = placement.node;
@@ -1184,9 +1346,24 @@ function TreeStructureView({
             if (node.type === 'general_manager') {
               return (
                 <div className="h-full w-full">
-                  <div className="rounded-[24px] border border-[rgba(17,17,17,0.12)] bg-white shadow-[var(--shadow-soft)]">
-                    <div className="rounded-t-[24px] bg-neutral-950 px-6 py-4 text-white">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">Main Workspace</div>
+                  <div
+                    className="rounded-[24px] border"
+                    style={{
+                      borderColor: 'rgba(15, 23, 42, 0.18)',
+                      background:
+                        'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,247,250,0.98) 100%)',
+                      boxShadow:
+                        '0 18px 38px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76)',
+                    }}
+                  >
+                    <div
+                      className="rounded-t-[24px] px-6 py-4 text-white"
+                      style={{
+                        background: 'linear-gradient(180deg, #0f172a 0%, #172235 100%)',
+                        borderBottom: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/62">Main Workspace</div>
                       <div className="mt-1 text-[19px] font-semibold">{generalManager.label}</div>
                     </div>
 
@@ -1196,7 +1373,8 @@ function TreeStructureView({
                         style={{
                           borderColor: 'var(--color-role-manager-border)',
                           backgroundColor: 'var(--color-role-manager-soft)',
-                          boxShadow: 'inset 0 2px 0 var(--color-role-manager-accent)',
+                          boxShadow:
+                            'inset 0 3px 0 var(--color-role-manager-accent), inset 0 1px 0 rgba(255,255,255,0.42)',
                         }}
                       >
                         <div
@@ -1215,7 +1393,7 @@ function TreeStructureView({
                           style={{
                             borderColor: role.border,
                             backgroundColor: role.soft,
-                            boxShadow: `inset 0 2px 0 ${role.accent}`,
+                            boxShadow: `inset 0 3px 0 ${role.accent}, inset 0 1px 0 rgba(255,255,255,0.42)`,
                           }}
                         >
                           <div
@@ -1230,7 +1408,14 @@ function TreeStructureView({
                       ))}
                     </div>
 
-                    <div className="flex justify-center gap-2 border-t border-neutral-200 px-4 py-5">
+                    <div
+                      className="flex justify-center gap-2 px-4 py-5"
+                      style={{
+                        borderTop: '1px solid rgba(15, 23, 42, 0.1)',
+                        background:
+                          'linear-gradient(180deg, rgba(247,249,252,0.8) 0%, rgba(239,244,248,0.88) 100%)',
+                      }}
+                    >
                       <button
                         className="ui-button ui-button-primary text-white"
                         onClick={onOpenMainWorkspace}
@@ -1240,6 +1425,7 @@ function TreeStructureView({
                       </button>
                     </div>
                   </div>
+                  <MapAddUserTeamAnchor onClick={onAddUserTeam} />
                 </div>
               );
             }
@@ -1419,6 +1605,7 @@ function TreeOverviewView({
   teamNodesByTeam,
   onOpenWorkspace,
   onEditTeam,
+  onAddUserTeam,
   zoomInSignal,
   zoomOutSignal,
   resetSignal,
@@ -1429,6 +1616,7 @@ function TreeOverviewView({
   teamNodesByTeam: Record<string, TeamsGraphNode[]>;
   onOpenWorkspace: (node: TeamsGraphNode) => void;
   onEditTeam: (nodeId: string) => void;
+  onAddUserTeam: () => void;
   zoomInSignal: number;
   zoomOutSignal: number;
   resetSignal: number;
@@ -1456,14 +1644,23 @@ function TreeOverviewView({
     >
       <div className="flex flex-col items-center gap-4 pb-3">
         <div className="text-center">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Tree</div>
-          <div className="mt-1 text-xs text-neutral-600">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Tree</div>
+          <div className="mt-1 text-xs text-neutral-700">
             Structural view only. Read hierarchy fast, then open the workspace from the node button.
           </div>
         </div>
 
-        <div className="rounded-[12px] border border-neutral-200 bg-white px-4 py-2 text-center shadow-[var(--shadow-soft)]">
-          <div className="text-[9px] uppercase tracking-[0.18em] text-neutral-500">Project</div>
+        <div
+          className="rounded-[12px] border px-4 py-2 text-center"
+          style={{
+            borderColor: 'rgba(15, 23, 42, 0.12)',
+            background:
+              'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,247,250,0.98) 100%)',
+            boxShadow:
+              'inset 0 1px 0 rgba(255,255,255,0.72), 0 10px 22px rgba(15,23,42,0.08)',
+          }}
+        >
+          <div className="text-[9px] uppercase tracking-[0.18em] text-neutral-600">Project</div>
           <div className="mt-1 text-xs font-semibold text-neutral-900">{projectName}</div>
         </div>
 
@@ -1471,17 +1668,26 @@ function TreeOverviewView({
           layout={layout}
           paddingX={TREE_CANVAS_PADDING_X}
           paddingY={TREE_CANVAS_PADDING_Y}
-          connectorColor="rgba(17,17,17,0.5)"
-          connectorStrokeWidth={1.35}
+          connectorColor="rgba(71,85,105,0.56)"
+          connectorStrokeWidth={1.45}
         >
           {(placement) => {
             const node = placement.node;
 
             if (node.type === 'general_manager') {
               return (
-                <div className="flex h-full w-full flex-col items-center justify-center rounded-[16px] border border-neutral-200 bg-neutral-950 px-2 py-2 text-center text-white shadow-[var(--shadow-soft)]">
+                <div
+                  className="flex h-full w-full flex-col items-center justify-center rounded-[16px] border px-2 py-2 text-center text-white"
+                  style={{
+                    borderColor: 'rgba(15, 23, 42, 0.18)',
+                    background: 'linear-gradient(180deg, #0f172a 0%, #172235 100%)',
+                    boxShadow:
+                      '0 10px 22px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.08)',
+                  }}
+                >
                   <div className="text-[8px] uppercase tracking-[0.18em] text-white/55">Main</div>
                   <div className="mt-1 line-clamp-2 text-[11px] font-semibold leading-[1.2]">{generalManager.label}</div>
+                  <TreeAddUserTeamAnchor onClick={onAddUserTeam} />
                 </div>
               );
             }
@@ -1489,14 +1695,23 @@ function TreeOverviewView({
             const theme = getTeamTheme(node.teamId);
             const isTopLevelUnit = node.parentId === generalManager.id;
             const isManagerFamilyNode = node.type === 'senior_manager';
-            const familyFill = getFamilyColor(theme.ribbon, 0.4);
+            const familyFill = getFamilyColor(theme.ribbon, isManagerFamilyNode ? 0.14 : 0.12);
             const roleLabel = isManagerFamilyNode
               ? isTopLevelUnit
                 ? 'Team'
                 : 'Sub-Manager'
               : 'Worker';
-            const boxBackground = isManagerFamilyNode ? theme.soft : familyFill;
+            const boxBackground = isManagerFamilyNode
+              ? `linear-gradient(180deg, ${getFamilyColor(theme.ribbon, 0.2)} 0%, ${getFamilyColor(
+                  theme.ribbon,
+                  0.2,
+                )} 34%, rgba(255,255,255,0.96) 34%, rgba(255,255,255,0.96) 100%)`
+              : `linear-gradient(180deg, ${getFamilyColor(theme.ribbon, 0.18)} 0%, ${getFamilyColor(
+                  theme.ribbon,
+                  0.18,
+                )} 32%, rgba(255,255,255,0.97) 32%, rgba(255,255,255,0.97) 100%)`;
             const boxColor = isManagerFamilyNode ? theme.ribbon : theme.accent;
+            const boxBorder = isManagerFamilyNode ? theme.border : getFamilyColor(theme.accent, 0.28);
 
             return (
               <div
@@ -1506,15 +1721,22 @@ function TreeOverviewView({
                 style={{
                   width: `${placement.width}px`,
                   minWidth: `${placement.width}px`,
-                  border: `1px solid ${theme.border}`,
-                  backgroundColor: boxBackground,
+                  border: `1px solid ${boxBorder}`,
+                  background: boxBackground,
                   color: '#111111',
+                  boxShadow: isManagerFamilyNode
+                    ? `0 10px 22px rgba(15,23,42,0.08), inset 0 3px 0 ${theme.accent}, inset 0 1px 0 rgba(255,255,255,0.75)`
+                    : `0 8px 18px rgba(15,23,42,0.07), inset 0 3px 0 ${theme.accent}, inset 0 1px 0 rgba(255,255,255,0.75)`,
                 }}
               >
                 <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 px-2 py-2">
                   <div
-                    className="text-[8px] uppercase tracking-[0.18em]"
-                    style={{ color: boxColor }}
+                    className="rounded-full px-2 py-1 text-[8px] uppercase tracking-[0.14em]"
+                    style={{
+                      color: boxColor,
+                      background: getFamilyColor(theme.soft, 0.92),
+                      border: `1px solid ${getFamilyColor(theme.accent, 0.2)}`,
+                    }}
                   >
                     {roleLabel}
                   </div>
@@ -1524,7 +1746,11 @@ function TreeOverviewView({
                   <div className="flex items-center gap-1 pt-0.5">
                     <button
                       data-pan-block="true"
-                      className="rounded-full border border-neutral-300/80 bg-white/70 px-2 py-[3px] text-[9px] font-medium leading-none text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-900"
+                      className="rounded-full border px-2 py-[3px] text-[9px] font-medium leading-none text-neutral-700 transition-colors hover:text-neutral-900"
+                      style={{
+                        borderColor: getFamilyColor(theme.accent, 0.24),
+                        background: 'rgba(255,255,255,0.82)',
+                      }}
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenWorkspace(node);
@@ -1534,7 +1760,11 @@ function TreeOverviewView({
                     </button>
                     <button
                       data-pan-block="true"
-                      className="rounded-full border border-neutral-300/80 bg-white/50 px-2 py-[3px] text-[9px] font-medium leading-none text-neutral-600 transition-colors hover:border-neutral-400 hover:text-neutral-800"
+                      className="rounded-full border px-2 py-[3px] text-[9px] font-medium leading-none text-neutral-600 transition-colors hover:text-neutral-800"
+                      style={{
+                        borderColor: getFamilyColor(theme.accent, 0.18),
+                        background: getFamilyColor(theme.soft, 0.44),
+                      }}
                       onClick={(event) => {
                         event.stopPropagation();
                         onEditTeam(node.id);
@@ -1735,6 +1965,14 @@ export function PageD() {
       Object.keys(teamsState.teamSettingsByTeam).filter((teamId) => teamId.startsWith('team_dynamic_')).length + 1;
     setAddTeamSavingTag(`TEAM-${String(nextNumber).padStart(2, '0')}`);
   }, [addTeamSavingTag, showAddTeamModal, teamsState.teamSettingsByTeam]);
+
+  const openAddUserTeamModal = () => {
+    setAddTeamName('');
+    setAddTeamProvider('OpenAI');
+    setAddTeamSavingDefault('Documentation Mode');
+    setAddTeamSavingTag('');
+    setShowAddTeamModal(true);
+  };
 
   const handleSaveNode = () => {
     if (!selectedNode) {
@@ -2107,15 +2345,31 @@ export function PageD() {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-soft)]">
       <div className="scrollbar-thin flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
         <section className="flex min-h-full flex-col gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
-          <div className="ui-surface flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div
+            className="ui-surface flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+            style={{
+              borderColor: 'rgba(15, 23, 42, 0.12)',
+              background:
+                'linear-gradient(180deg, rgba(250,252,254,0.98) 0%, rgba(240,245,249,0.98) 100%)',
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 26px rgba(15,23,42,0.06)',
+            }}
+          >
             <div>
               <h1 className="ui-title text-[20px] uppercase tracking-[0.12em]">Teams Map</h1>
-              <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+              <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-neutral-600">
                 Operational Elasticity View
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-full border border-neutral-200 bg-white p-1">
+              <div
+                className="rounded-full border p-1"
+                style={{
+                  borderColor: 'rgba(15, 23, 42, 0.12)',
+                  background: 'rgba(255,255,255,0.86)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.72)',
+                }}
+              >
                 {(['map', 'tree'] as TeamsViewMode[]).map((mode) => (
                   <button
                     key={mode}
@@ -2131,11 +2385,25 @@ export function PageD() {
                 ))}
               </div>
 
-              <div className="ui-surface px-3 py-2 text-xs text-neutral-600">
+              <div
+                className="ui-surface px-3 py-2 text-xs text-neutral-700"
+                style={{
+                  borderColor: 'rgba(15, 23, 42, 0.1)',
+                  background:
+                    'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(244,247,250,0.95) 100%)',
+                }}
+              >
                 Teams {topLevelUnits.length} / Workers {totalWorkers}
               </div>
 
-              <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white p-1">
+              <div
+                className="flex items-center gap-2 rounded-full border p-1"
+                style={{
+                  borderColor: 'rgba(15, 23, 42, 0.12)',
+                  background: 'rgba(255,255,255,0.86)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.72)',
+                }}
+              >
                 <button
                   className="ui-button min-h-8 w-8 px-0 text-sm text-neutral-700"
                   onClick={() => setZoomInSignal((value) => value + 1)}
@@ -2160,13 +2428,7 @@ export function PageD() {
 
               <button
                 className="ui-button ui-button-primary text-white"
-                onClick={() => {
-                  setAddTeamName('');
-                  setAddTeamProvider('OpenAI');
-                  setAddTeamSavingDefault('Documentation Mode');
-                  setAddTeamSavingTag('');
-                  setShowAddTeamModal(true);
-                }}
+                onClick={openAddUserTeamModal}
               >
                 + Add Team
               </button>
@@ -2185,6 +2447,7 @@ export function PageD() {
                 onOpenMainWorkspace={() => openMainWorkspace(generalManager)}
                 onOpenWorkspace={openTeamWorkspace}
                 onEditTeam={openEditNode}
+                onAddUserTeam={openAddUserTeamModal}
                 inlineRename={inlineRename}
                 onInlineRenameChange={(value) =>
                   setInlineRename((current) => (current ? { ...current, value } : current))
@@ -2204,6 +2467,7 @@ export function PageD() {
                 teamNodesByTeam={teamNodesByTeam}
                 onOpenWorkspace={openTeamWorkspace}
                 onEditTeam={openEditNode}
+                onAddUserTeam={openAddUserTeamModal}
                 zoomInSignal={zoomInSignal}
                 zoomOutSignal={zoomOutSignal}
                 resetSignal={resetSignal}
@@ -2240,12 +2504,11 @@ export function PageD() {
         </div>
 
         <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
-          <AgentPanel
-            agent="manager"
+          <CollapsibleManagerSidebar
             managerDisplayName={subManagerLabel}
             className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]"
+            storageKey="aisync_sm_sidebar_page_d"
           />
-          <DividerRail />
           {teamsContent}
         </div>
       </div>

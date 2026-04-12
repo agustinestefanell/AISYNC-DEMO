@@ -41,6 +41,12 @@ export function getTopRibbonSectionLabel(page: Page, secondaryWorkspaceLabel?: s
   return getPageLabel(page);
 }
 
+export function getTopRibbonSectionNote(page: Page) {
+  if (page === 'B') return 'what exists and how to consult it';
+  if (page === 'C') return 'what happened';
+  return null;
+}
+
 export function getDocumentationViewLabel(view: DocumentationViewMode) {
   if (view === 'repository') return 'Repository View';
   if (view === 'structure') return 'Structure View';

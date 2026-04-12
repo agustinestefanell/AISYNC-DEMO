@@ -33,6 +33,7 @@ export function PageA() {
       agent={agent}
       auditSourcePage="A"
       editableRole={agent !== 'manager'}
+      selectionScope={`page-a:${agent}`}
       className={state.workspaceFocusAgent === agent ? focusClass : ''}
     />
   );
@@ -87,6 +88,7 @@ export function PageA() {
           <AgentPanel
             agent="manager"
             auditSourcePage="A"
+            selectionScope="page-a:manager"
             className={state.workspaceFocusAgent === 'manager' ? focusClass : ''}
             style={{ width: 'calc((100% - 16px) / 2)' }}
           />
@@ -95,6 +97,7 @@ export function PageA() {
             agent={tabletWorker}
             auditSourcePage="A"
             editableRole
+            selectionScope={`page-a:${tabletWorker}`}
             className={state.workspaceFocusAgent === tabletWorker ? focusClass : ''}
             style={{ width: 'calc((100% - 16px) / 2)' }}
           />
@@ -104,6 +107,7 @@ export function PageA() {
           <AgentPanel
             agent="manager"
             auditSourcePage="A"
+            selectionScope="page-a:manager"
             className={state.workspaceFocusAgent === 'manager' ? focusClass : ''}
             style={{ width: panelWidth }}
           />
@@ -112,6 +116,7 @@ export function PageA() {
             agent="worker1"
             auditSourcePage="A"
             editableRole
+            selectionScope="page-a:worker1"
             className={state.workspaceFocusAgent === 'worker1' ? focusClass : ''}
             style={{ width: panelWidth }}
           />
@@ -120,6 +125,7 @@ export function PageA() {
             agent="worker2"
             auditSourcePage="A"
             editableRole
+            selectionScope="page-a:worker2"
             className={state.workspaceFocusAgent === 'worker2' ? focusClass : ''}
             style={{ width: panelWidth }}
           />

@@ -1,4 +1,9 @@
-import type { CalendarEvent, WorkspaceVersionReference } from './types';
+import type { WorkspaceVersionReference } from './types';
+
+interface AuditDetailLaunchTarget {
+  id: string;
+  versionReference?: WorkspaceVersionReference | null;
+}
 
 function buildBaseUrl() {
   const url = new URL(window.location.href);
@@ -38,28 +43,33 @@ export function getWorkspaceVersionReferenceFromLocation(): WorkspaceVersionRefe
     threadId,
     agent: source === 'main' ? (params.get('version_agent') as WorkspaceVersionReference['agent']) ?? undefined : undefined,
     teamId: source === 'team' ? params.get('version_team') ?? undefined : undefined,
+    panelScope: source === 'main' ? params.get('version_panel') ?? undefined : undefined,
   };
 }
 
-export function openAuditDetailWindow(event: CalendarEvent) {
+export function openAuditDetailWindow(event: AuditDetailLaunchTarget) {
   if (typeof window === 'undefined') {
     return false;
   }
 
   const url = buildBaseUrl();
 
-  if (event.versionId && event.versionSource && event.versionThreadId) {
+  if (event.versionReference) {
     url.searchParams.set('page', 'H');
-    url.searchParams.set('version_source', event.versionSource);
-    url.searchParams.set('version_id', event.versionId);
-    url.searchParams.set('version_thread', event.versionThreadId);
+    url.searchParams.set('version_source', event.versionReference.source);
+    url.searchParams.set('version_id', event.versionReference.versionId);
+    url.searchParams.set('version_thread', event.versionReference.threadId);
 
-    if (event.versionSource === 'main' && event.agent) {
-      url.searchParams.set('version_agent', event.agent);
+    if (event.versionReference.source === 'main' && event.versionReference.agent) {
+      url.searchParams.set('version_agent', event.versionReference.agent);
     }
 
-    if (event.versionSource === 'team' && event.teamId) {
-      url.searchParams.set('version_team', event.teamId);
+    if (event.versionReference.source === 'main' && event.versionReference.panelScope) {
+      url.searchParams.set('version_panel', event.versionReference.panelScope);
+    }
+
+    if (event.versionReference.source === 'team' && event.versionReference.teamId) {
+      url.searchParams.set('version_team', event.versionReference.teamId);
     }
   } else {
     url.searchParams.set('page', 'C');

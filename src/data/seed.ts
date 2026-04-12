@@ -281,7 +281,30 @@ export const seedFiles: SavedFile[] = [
   },
 ];
 
-const businessSlots = ['09:05', '09:45', '10:30', '11:20', '13:05', '14:10', '15:25', '16:40'];
+const businessSlots = [
+  '08:05',
+  '08:35',
+  '09:05',
+  '09:35',
+  '10:05',
+  '10:35',
+  '11:05',
+  '11:35',
+  '12:05',
+  '12:35',
+  '13:05',
+  '13:35',
+  '14:05',
+  '14:35',
+  '15:05',
+  '15:35',
+  '16:05',
+  '16:35',
+  '17:05',
+  '17:35',
+  '18:05',
+  '18:35',
+];
 
 interface AuditTeamSeed {
   teamId: string;
@@ -325,12 +348,15 @@ const auditTeamSeeds: AuditTeamSeed[] = [
   },
   {
     teamId: 'team_clients',
-    teamLabel: 'W-Clients / Projects',
+    teamLabel: 'SM-Clients / Projects',
     managerLabel: 'AI General Manager',
     code: 'CL',
     projectId: 'proj2',
     userPool: ['Agustin E.', 'Client Partner', 'Project Coordinator'],
-    workers: [{ label: 'W-Clients / Projects', agent: 'worker1' }],
+    workers: [
+      { label: 'W-CL01', agent: 'worker1' },
+      { label: 'W-CL02', agent: 'worker2' },
+    ],
     outputs: ['Client checkpoint', 'Project memo', 'Stakeholder digest'],
   },
   {
@@ -360,11 +386,15 @@ const workerActionsByPhase: Record<WorkPhaseState, string[]> = {
   Closed: ['Output saved', 'Summary delivered', 'Reference memo filed'],
 };
 
-function getMarchEventCount(day: number) {
-  const weekday = new Date(2026, 2, day).getDay();
+function getMonthSeedEventCount(monthIndex: number, day: number) {
+  const weekday = new Date(2026, monthIndex, day).getDay();
   if (weekday === 0) return day === 1 ? 2 : 1;
   if (weekday === 6) return 3;
   return 6;
+}
+
+function getAprilEventCount(_day: number) {
+  return 20;
 }
 
 function getPhaseState(slotIndex: number, count: number): WorkPhaseState {
@@ -403,34 +433,52 @@ function buildOutputLabel(team: AuditTeamSeed, phaseState: WorkPhaseState, index
   return `${root} final`;
 }
 
-export const seedCalendarEvents: CalendarEvent[] = Array.from({ length: 31 }, (_, index) => index + 1)
-  .flatMap((day, dayIndex) => {
-    const count = getMarchEventCount(day);
+function buildAuditSeedMonth({
+  year,
+  month,
+  daysInMonth,
+  countForDay,
+  idPrefix,
+  maxEvents,
+  monthShift = 0,
+}: {
+  year: number;
+  month: number;
+  daysInMonth: number;
+  countForDay: (day: number) => number;
+  idPrefix: string;
+  maxEvents?: number;
+  monthShift?: number;
+}) {
+  const events = Array.from({ length: daysInMonth }, (_, index) => index + 1).flatMap((day, dayIndex) => {
+    const count = countForDay(day);
     return Array.from({ length: count }, (_, slotIndex) => {
-      const team = auditTeamSeeds[(dayIndex + slotIndex) % auditTeamSeeds.length] as AuditTeamSeed;
+      const rotationIndex = dayIndex + slotIndex + monthShift;
+      const team = auditTeamSeeds[rotationIndex % auditTeamSeeds.length] as AuditTeamSeed;
       const phaseState = getPhaseState(slotIndex, count);
       const useManager = slotIndex === 0 || (phaseState === 'Closed' && slotIndex === count - 1);
-      const worker = team.workers[(dayIndex + slotIndex) % team.workers.length];
+      const worker = team.workers[rotationIndex % team.workers.length];
       const agent = useManager ? 'manager' : worker.agent;
       const actorLabel = useManager ? team.managerLabel : worker.label;
       const workerLabel = useManager ? undefined : worker.label;
       const actionPool = useManager
         ? managerActionsByPhase[phaseState]
         : workerActionsByPhase[phaseState];
-      const actionLabel = actionPool[(dayIndex + slotIndex) % actionPool.length] as string;
-      const outputLabel = buildOutputLabel(team, phaseState, dayIndex + slotIndex);
-      const file = pickSeedFile(team.projectId, agent, phaseState, dayIndex + slotIndex);
+      const actionLabel = actionPool[rotationIndex % actionPool.length] as string;
+      const outputLabel = buildOutputLabel(team, phaseState, rotationIndex);
+      const file = pickSeedFile(team.projectId, agent, phaseState, rotationIndex);
       const dayString = String(day).padStart(2, '0');
-      const slotOffset = dayIndex % 2;
+      const monthString = String(month).padStart(2, '0');
+      const slotOffset = (dayIndex + monthShift) % 2;
 
       return {
-        id: `audit_evt_202603_${dayString}_${String(slotIndex + 1).padStart(2, '0')}`,
+        id: `${idPrefix}_${dayString}_${String(slotIndex + 1).padStart(2, '0')}`,
         projectId: team.projectId,
         agent,
         sourceLabel: actorLabel,
         teamId: team.teamId,
         teamLabel: team.teamLabel,
-        userLabel: team.userPool[(dayIndex + slotIndex) % team.userPool.length],
+        userLabel: team.userPool[rotationIndex % team.userPool.length],
         actorLabel,
         managerLabel: team.managerLabel,
         workerLabel,
@@ -439,13 +487,38 @@ export const seedCalendarEvents: CalendarEvent[] = Array.from({ length: 31 }, (_
         phaseState,
         fileId: file.id,
         title: `${team.code} | ${actionLabel}`,
-        date: `2026-03-${dayString}`,
+        date: `${year}-${monthString}-${dayString}`,
         time: businessSlots[slotIndex + slotOffset] ?? businessSlots[slotIndex],
       };
     });
-  })
-  .slice(0, 150)
-  .map((event) => ({
+  });
+
+  return (typeof maxEvents === 'number' ? events.slice(0, maxEvents) : events).map((event) => ({
     ...event,
     title: `${event.title} | ${event.outputLabel}`,
   }));
+}
+
+const marchSeedCalendarEvents = buildAuditSeedMonth({
+  year: 2026,
+  month: 3,
+  daysInMonth: 31,
+  countForDay: (day) => getMonthSeedEventCount(2, day),
+  idPrefix: 'audit_evt_202603',
+  maxEvents: 150,
+});
+
+const aprilSeedCalendarEvents = buildAuditSeedMonth({
+  year: 2026,
+  month: 4,
+  daysInMonth: 30,
+  countForDay: getAprilEventCount,
+  idPrefix: 'audit_evt_202604',
+  maxEvents: 600,
+  monthShift: 7,
+});
+
+export const seedCalendarEvents: CalendarEvent[] = [
+  ...marchSeedCalendarEvents,
+  ...aprilSeedCalendarEvents,
+];

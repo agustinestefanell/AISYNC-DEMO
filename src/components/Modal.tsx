@@ -36,10 +36,10 @@ export function Modal({
       <div
         className={`ui-modal-surface flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden ${width}`}
       >
-        <div className="flex items-center justify-between border-b border-neutral-200/80 px-4 py-3 sm:px-5 sm:py-4">
-          <h3 className="pr-3 text-base font-semibold tracking-[-0.02em] text-neutral-900 sm:text-[18px]">{title}</h3>
+        <div className="ui-modal-header">
+          <h3 className="ui-modal-title pr-3 sm:text-[18px]">{title}</h3>
           <button
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+            className="ui-icon-button text-lg leading-none"
             onClick={onClose}
           >
             x

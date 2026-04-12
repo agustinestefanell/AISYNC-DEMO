@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import { AgentPanel } from '../components/AgentPanel';
-import { DividerRail } from '../components/DividerRail';
+import { CollapsibleManagerSidebar } from '../components/CollapsibleManagerSidebar';
 import { DocumentationMirrorTree, DocumentationTree } from '../components/DocumentationTree';
 import { FileViewer } from '../components/FileViewer';
 import { Modal } from '../components/Modal';
@@ -655,7 +655,7 @@ const DOCUMENTATION_MODE_MANIFEST_EN = [
 ].join('\n');
 
 function isRepositoryDocumentItem(item: DocumentationRepositoryItem) {
-  return item.itemType === 'file';
+  return item.itemType === 'file' || item.itemType === 'saved-object';
 }
 
 function getRepositoryStatusLabel(item: DocumentationRepositoryItem) {
@@ -740,6 +740,45 @@ type KnowledgeGraphNode = Omit<DocumentationKnowledgeNode, 'nodeType'> & {
   nodeType: KnowledgeGraphNodeType;
 };
 
+type DocumentationHelpTopic =
+  | 'repository'
+  | 'structure'
+  | 'audit'
+  | 'investigate'
+  | 'knowledge-map';
+
+const DOCUMENTATION_HELP_LINKS: Array<{
+  id: DocumentationHelpTopic;
+  label: string;
+  modalTitle: string;
+}> = [
+  {
+    id: 'repository',
+    label: 'How to use Repository review',
+    modalTitle: 'How to use Repository View',
+  },
+  {
+    id: 'structure',
+    label: 'How to use Structure view',
+    modalTitle: 'How to use Structure View',
+  },
+  {
+    id: 'audit',
+    label: 'How to use Audit View',
+    modalTitle: 'How to use Audit View',
+  },
+  {
+    id: 'investigate',
+    label: 'How to use Investigate View',
+    modalTitle: 'How to use Investigate View',
+  },
+  {
+    id: 'knowledge-map',
+    label: 'How to use Knowledge Map',
+    modalTitle: 'How to use Knowledge Map',
+  },
+];
+
 function ProjectCard({
   projectId,
   projectName,
@@ -802,6 +841,7 @@ export function PageB() {
   const [showManagerMobile, setShowManagerMobile] = useState(false);
   const [showManifestView, setShowManifestView] = useState(false);
   const [showAuditManifestView, setShowAuditManifestView] = useState(false);
+  const [activeHelpTopic, setActiveHelpTopic] = useState<DocumentationHelpTopic | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [openFileId, setOpenFileId] = useState<string | null>(null);
@@ -859,6 +899,8 @@ export function PageB() {
       buildDocumentationModeModel({
         root: state.documentationRoot,
         teamsGraph: teamsMapState.teamsGraph,
+        savedObjects: state.savedObjects,
+        activityEvents: state.activityEvents,
         savedFiles: state.savedFiles,
         calendarEvents: state.calendarEvents,
         mainWorkspace: {
@@ -870,12 +912,14 @@ export function PageB() {
         },
       }),
     [
+      state.activityEvents,
       state.calendarEvents,
       state.documentLocks,
       state.documentationRoot,
       state.messages,
       state.projectName,
       state.userName,
+      state.savedObjects,
       state.savedFiles,
       state.workspaceVersions,
       teamsMapState.teamsGraph,
@@ -1883,7 +1927,9 @@ export function PageB() {
   ) => {
     const canonicalItem =
       documentationModel.repositoryItems.find(
-        (candidate) => candidate.id === repositoryItemId && candidate.itemType === 'file',
+        (candidate) =>
+          candidate.id === repositoryItemId &&
+          (candidate.itemType === 'file' || candidate.itemType === 'saved-object'),
       ) ?? null;
     if (!canonicalItem) {
       return;
@@ -2027,6 +2073,7 @@ export function PageB() {
                 >
                   <option value="all">All types</option>
                   <option value="file">Files</option>
+                  <option value="saved-object">Saved objects</option>
                   <option value="agent-unit">Agent units</option>
                   <option value="workspace-agent">Workspace agents</option>
                   <option value="team-folder">Team folders</option>
@@ -2106,8 +2153,8 @@ export function PageB() {
                       href={buildRepositoryItemHref(item.id)}
                       itemType={item.itemType}
                       title={item.title}
-                      meta={`${item.itemType} · ${item.teamLabel} · ${item.ownerLabel ?? 'system ownership'}`}
-                      secondary={`${item.recordClass} · updated ${item.updatedAt?.slice(0, 10) ?? 'n/a'} · ${item.path}`}
+                      meta={`${item.objectType ?? item.itemType} · ${item.teamLabel} · ${item.sourcePanelLabel ?? item.ownerLabel ?? 'system ownership'}`}
+                      secondary={`${item.recordClass} · updated ${item.updatedAt?.slice(0, 10) ?? 'n/a'}${item.provenanceSummary ? ` · ${item.provenanceSummary}` : ''}`}
                       status={item.status}
                       documentState={item.documentState}
                       documentVersion={item.documentVersion}
@@ -2562,7 +2609,18 @@ export function PageB() {
                 Multiple production views over one shared documentary base.
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex max-w-[320px] flex-col items-start gap-1.5 pt-0.5 text-left">
+                {DOCUMENTATION_HELP_LINKS.map((link) => (
+                  <button
+                    key={link.id}
+                    className="text-[11px] font-normal text-[var(--color-accent-strong)] underline underline-offset-2 transition-colors hover:text-[var(--color-accent)]"
+                    onClick={() => setActiveHelpTopic(link.id)}
+                  >
+                    {link.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-col items-end leading-none">
                 <button
                   className="text-[11px] font-normal text-neutral-500 underline-offset-2 transition-colors hover:text-neutral-900 hover:underline"
@@ -2653,7 +2711,13 @@ export function PageB() {
 
         {showManagerMobile && (
           <div className="app-frame app-short-landscape-flex flex h-[46dvh] min-h-0 overflow-hidden sm:hidden">
-            <AgentPanel agent="manager" managerDisplayName={subManagerLabel} />
+            <AgentPanel
+              agent="manager"
+              managerDisplayName={subManagerLabel}
+              selectionScope="page-b:manager"
+              panelScope="page-b:manager"
+              sourceWorkspace="documentation-mode"
+            />
           </div>
         )}
 
@@ -2662,12 +2726,13 @@ export function PageB() {
         </div>
 
         <div className="app-frame app-short-landscape-hide hidden min-h-0 flex-1 overflow-hidden sm:flex">
-          <AgentPanel
-            agent="manager"
+          <CollapsibleManagerSidebar
             managerDisplayName={subManagerLabel}
             className="w-[280px] shrink-0 md:w-[320px] lg:w-[432px]"
+            storageKey="aisync_sm_sidebar_page_b"
+            selectionScope="page-b:manager"
+            panelScope="page-b:manager"
           />
-          <DividerRail />
           {documentationContent}
         </div>
       </div>
@@ -2753,6 +2818,21 @@ export function PageB() {
             <pre className="whitespace-pre-wrap text-sm leading-6 text-neutral-800">
               {DOCUMENTATION_MODE_MANIFEST_EN}
             </pre>
+          </div>
+        </Modal>
+      )}
+
+      {activeHelpTopic && (
+        <Modal
+          title={DOCUMENTATION_HELP_LINKS.find((link) => link.id === activeHelpTopic)?.modalTitle ?? 'How to use Documentation Mode'}
+          onClose={() => setActiveHelpTopic(null)}
+          width="max-w-3xl"
+        >
+          <div className="max-h-[72vh] overflow-y-auto pr-1">
+            <div className="mb-3 text-[11px] uppercase tracking-[0.16em] text-neutral-500">
+              Operational guidance
+            </div>
+            <DocumentationHelpContent topic={activeHelpTopic} />
           </div>
         </Modal>
       )}
@@ -3893,7 +3973,7 @@ function RepositoryItemCard({
   onSelect: () => void;
   onOpen?: (() => void) | null;
 }) {
-  const isDocument = itemType === 'file';
+  const isDocument = itemType === 'file' || itemType === 'saved-object';
   const stateLabel = documentState ?? status;
 
   return (
@@ -3975,34 +4055,11 @@ function RepositoryDetailPanel({
   href,
   onOpenFile,
 }: {
-  item: {
-    id: string;
-    itemType: string;
-    sourceWorkspace: string;
-    title: string;
-    teamLabel: string;
-    userLabel: string | null;
-    ownerLabel: string | null;
-    ownerRole: string | null;
-    status: string;
-    recordClass: string;
-    updatedAt: string | null;
-    projectLabel: string | null;
-    sourceConversationLabel: string | null;
-    auditEventIds: string[];
-    checkpointLabel: string | null;
-    versionCount: number | null;
-    lockState: boolean | null;
-    documentState: DocumentationDocumentState | null;
-    documentVersion: string | null;
-    lastResponsible: string | null;
-    path: string;
-    relatedFileId?: string;
-  };
+  item: DocumentationRepositoryItem;
   href: string;
   onOpenFile: () => void;
 }) {
-  const isDocument = item.itemType === 'file';
+  const isDocument = item.itemType === 'file' || item.itemType === 'saved-object';
 
   return (
     <div className="mt-3 grid gap-4">
@@ -4015,9 +4072,11 @@ function RepositoryDetailPanel({
 
       <div className="grid gap-3 text-xs text-neutral-700 sm:grid-cols-2">
         <DetailField label="Team" value={item.teamLabel} />
+        <DetailField label="Object Type" value={item.objectType ?? item.itemType} />
         <DetailField label="USER" value={item.userLabel ?? 'n/a'} />
         <DetailField label="Owner" value={item.ownerLabel ?? 'System ownership'} />
         <DetailField label="Origin Agent" value={item.ownerRole ?? 'n/a'} />
+        <DetailField label="Source Panel" value={item.sourcePanelLabel ?? 'n/a'} />
         <DetailField label={isDocument ? 'Document State' : 'Status'} value={item.documentState ?? item.status} />
         {isDocument ? (
           <DetailField label="Version" value={item.documentVersion ?? 'n/a'} />
@@ -4029,6 +4088,7 @@ function RepositoryDetailPanel({
         <DetailField label="Updated" value={item.updatedAt?.slice(0, 10) ?? 'n/a'} />
         <DetailField label="Project" value={item.projectLabel ?? 'n/a'} />
         <DetailField label="Conversation Source" value={item.sourceConversationLabel ?? 'n/a'} />
+        <DetailField label="Provenance" value={item.provenanceSummary ?? 'n/a'} />
         <DetailField
           label="Audit Linkage"
           value={item.auditEventIds.length ? `${item.auditEventIds.length} linked event(s)` : 'n/a'}
@@ -4039,6 +4099,24 @@ function RepositoryDetailPanel({
           value={item.lockState === null ? 'n/a' : item.lockState ? 'Locked' : 'Unlocked'}
         />
       </div>
+
+      {item.automaticTags && item.automaticTags.length > 0 ? (
+        <div className="grid gap-1">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
+            Automatic Tags
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {item.automaticTags.map((tag) => (
+              <div
+                key={tag}
+                className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-[10px] font-medium text-neutral-600"
+              >
+                {tag}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <DetailField label="Path" value={item.path} long />
 
@@ -4059,6 +4137,117 @@ function RepositoryDetailPanel({
         >
           Open in new tab/window
         </a>
+      </div>
+    </div>
+  );
+}
+
+function DocumentationHelpContent({ topic }: { topic: DocumentationHelpTopic }) {
+  if (topic === 'repository') {
+    return (
+      <div className="grid gap-4 text-sm leading-6 text-neutral-800">
+        <div>
+          <h3 className="text-base font-semibold text-neutral-900">Repository View</h3>
+          <p className="mt-2">It is the view for finding things quickly.</p>
+          <p className="mt-2">
+            If you enter here, the idea is simple: see a clear list of documents, search by name,
+            filter by project, team, type, or state, and open what you need without going in circles.
+          </p>
+          <p className="mt-2">
+            In everyday language: it is like the main working table of the archive.
+          </p>
+          <p className="mt-2">
+            You do not come here to understand the whole story. You come here to locate a document
+            and use it. That is why this should be the main daily-use view.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (topic === 'structure') {
+    return (
+      <div className="grid gap-4 text-sm leading-6 text-neutral-800">
+        <div>
+          <h3 className="text-base font-semibold text-neutral-900">Structure View</h3>
+          <p className="mt-2">It is the view for understanding where each thing comes from and how it is organized.</p>
+          <p className="mt-2">
+            Here it is not so much about finding something fast, but about seeing the structure:
+            project, team, folder, provenance, and the relationship between parts.
+          </p>
+          <p className="mt-2">
+            Said simply: it is like looking at the shelf or the archive tree.
+          </p>
+          <p className="mt-2">
+            It helps you orient yourself and understand the general order of the system.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (topic === 'audit') {
+    return (
+      <div className="grid gap-4 text-sm leading-6 text-neutral-800">
+        <div>
+          <h3 className="text-base font-semibold text-neutral-900">Audit View</h3>
+          <p className="mt-2">It is the view for reconstructing what happened.</p>
+          <p className="mt-2">
+            It is useful for seeing who touched something, what was reviewed, what was moved, what
+            was approved, what was forwarded, and when it happened.
+          </p>
+          <p className="mt-2">
+            In common language: it is like reviewing the movement history of a case file.
+          </p>
+          <p className="mt-2">
+            It is not designed so much to store things, but to follow the trace of a situation.
+            Also, this view should stay very connected to Audit Log.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (topic === 'investigate') {
+    return (
+      <div className="grid gap-4 text-sm leading-6 text-neutral-800">
+        <div>
+          <h3 className="text-base font-semibold text-neutral-900">Investigate View</h3>
+          <p className="mt-2">It is the view for studying a topic.</p>
+          <p className="mt-2">
+            Here you are not looking only for one specific file. You are trying to understand a
+            complete matter: which documents are related, how something evolved over time, and what
+            context existed before and after.
+          </p>
+          <p className="mt-2">
+            Put simply: it is like opening an investigation table around a topic.
+          </p>
+          <p className="mt-2">
+            For example, it helps you see everything related to one decision, one client, or one
+            line of work, even if it is distributed across several documents.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 text-sm leading-6 text-neutral-800">
+      <div>
+        <h3 className="text-base font-semibold text-neutral-900">Knowledge Map</h3>
+        <p className="mt-2">It is the view for seeing relationships between things.</p>
+        <p className="mt-2">
+          It is not designed for basic daily work, but for seeing connections: which document comes
+          from which one, which team participated, which conversation produced which result, and
+          what is linked to what.
+        </p>
+        <p className="mt-2">
+          In plain everyday language: it is like a visual map of connections.
+        </p>
+        <p className="mt-2">
+          It helps you see the wider picture and understand relationships that are harder to detect
+          in a normal list. It is a secondary analytical layer; it does not replace Repository View.
+        </p>
       </div>
     </div>
   );

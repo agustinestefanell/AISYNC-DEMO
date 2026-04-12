@@ -24,12 +24,18 @@ import {
   getTeamWorkerForwardTargets,
   isValidTeamSubManagerForwardTarget,
 } from '../reviewForwardPolicy';
+import { createSavedObjectStorageEntry } from '../savedObjects';
 import {
   getTeamWorkspaceLaunchIdFromLocation,
   readTeamWorkspaceLaunch,
 } from '../teamWorkspaceLaunch';
 import type { AIProvider, AgentRole, ReviewForwardTargetOption, TeamsGraphNode } from '../types';
-import { createWorkspaceVersion, createWorkspaceVersionEvent } from '../versioning';
+import {
+  createCheckpointActivityEvent,
+  createCheckpointSavedObject,
+  createWorkspaceVersion,
+  createWorkspaceVersionEvent,
+} from '../versioning';
 
 const SAVE_AGENT_ORDER: AgentRole[] = ['worker1', 'worker2', 'manager'];
 
@@ -441,7 +447,32 @@ export function PageF() {
               current.versions,
               current.locked ? 'Locked checkpoint' : undefined,
             );
+            const checkpoint = createCheckpointSavedObject({
+              version,
+              projectId: state.projects[0]?.id ?? 'project_1',
+              projectLabel: state.projects[0]?.name ?? state.projects[0]?.id ?? 'project_1',
+              createdBy: state.userName,
+              sourceWorkspace: 'team-workspace',
+              sourceTeamId: teamId,
+              sourceTeamLabel: teamLabel,
+              sourcePanelId: worker.id,
+              sourcePanelLabel: worker.label,
+              threadId: worker.id,
+              threadLabel: worker.label,
+            });
 
+            dispatch({
+              type: 'SAVE_SAVED_OBJECT',
+              object: checkpoint,
+              storageEntry: createSavedObjectStorageEntry(checkpoint),
+            });
+            dispatch({
+              type: 'ADD_ACTIVITY_EVENT',
+              event: createCheckpointActivityEvent({
+                checkpoint,
+                actor: state.userName,
+              }),
+            });
             dispatch({
               type: 'ADD_CALENDAR_EVENT',
               event: createWorkspaceVersionEvent({
@@ -570,7 +601,32 @@ export function PageF() {
               current.versions,
               current.locked ? 'Locked checkpoint' : undefined,
             );
+            const checkpoint = createCheckpointSavedObject({
+              version,
+              projectId: state.projects[0]?.id ?? 'project_1',
+              projectLabel: state.projects[0]?.name ?? state.projects[0]?.id ?? 'project_1',
+              createdBy: state.userName,
+              sourceWorkspace: 'team-workspace',
+              sourceTeamId: teamId,
+              sourceTeamLabel: teamLabel,
+              sourcePanelId: TEAM_MANAGER_THREAD_ID,
+              sourcePanelLabel: `${teamLabel} Sub-Manager`,
+              threadId: TEAM_MANAGER_THREAD_ID,
+              threadLabel: `${teamLabel} Sub-Manager`,
+            });
 
+            dispatch({
+              type: 'SAVE_SAVED_OBJECT',
+              object: checkpoint,
+              storageEntry: createSavedObjectStorageEntry(checkpoint),
+            });
+            dispatch({
+              type: 'ADD_ACTIVITY_EVENT',
+              event: createCheckpointActivityEvent({
+                checkpoint,
+                actor: state.userName,
+              }),
+            });
             dispatch({
               type: 'ADD_CALENDAR_EVENT',
               event: createWorkspaceVersionEvent({

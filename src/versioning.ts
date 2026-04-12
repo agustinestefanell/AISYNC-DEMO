@@ -1,10 +1,14 @@
 import type {
+  ActivityLifecycleEvent,
   AgentRole,
   CalendarEvent,
+  CheckpointObject,
+  DocumentationOriginWorkspace,
   WorkPhaseState,
   WorkspaceVersion,
   WorkspaceVersionSource,
 } from './types';
+import { buildAutomaticTags } from './savedObjects';
 
 interface VersionMessageLike {
   senderLabel: string;
@@ -34,6 +38,114 @@ export function createWorkspaceVersion(
     locked,
     draft,
     snapshotContent: buildVersionSnapshotContent(messages),
+  };
+}
+
+interface CheckpointSavedObjectArgs {
+  version: WorkspaceVersion;
+  projectId: string;
+  projectLabel: string | null;
+  createdBy: string;
+  sourceWorkspace: DocumentationOriginWorkspace;
+  sourceTeamId: string | null;
+  sourceTeamLabel: string | null;
+  sourcePanelId: string;
+  sourcePanelLabel: string;
+  threadId: string;
+  threadLabel: string;
+}
+
+export function createCheckpointSavedObject({
+  version,
+  projectId,
+  projectLabel,
+  createdBy,
+  sourceWorkspace,
+  sourceTeamId,
+  sourceTeamLabel,
+  sourcePanelId,
+  sourcePanelLabel,
+  threadId,
+  threadLabel,
+}: CheckpointSavedObjectArgs): CheckpointObject {
+  return {
+    id: `checkpoint_${version.id}`,
+    objectType: 'checkpoint',
+    title: `${threadLabel} checkpoint`,
+    createdAt: version.savedAt,
+    updatedAt: version.savedAt,
+    sourceWorkspace,
+    sourceTeamId,
+    sourceTeamLabel,
+    sourcePanelId,
+    sourcePanelLabel,
+    createdBy,
+    projectId,
+    projectLabel,
+    provenance: {
+      sourceObjectIds: [],
+      messageIds: [],
+      sourceThreadId: threadId,
+      sourceVersionId: version.id,
+      note: 'Created from Save Version',
+    },
+    status: version.locked ? 'finalized' : 'active',
+    savePurpose: 'create-operational-checkpoint',
+    automaticTags: buildAutomaticTags({
+      objectType: 'checkpoint',
+      sourceWorkspace,
+      sourceTeamId,
+      sourcePanelId,
+      status: version.locked ? 'finalized' : 'active',
+      savePurpose: 'create-operational-checkpoint',
+      extraTags: [
+        'action:save-version',
+        'checkpoint:operational',
+        version.locked ? 'state:locked' : '',
+        sourceWorkspace === 'cross-verification' ? 'flow:cross-verification' : '',
+      ],
+    }),
+    userTags: [],
+    payload: {
+      threadId,
+      threadLabel,
+      versionNumber: version.versionNumber,
+      messageCount: version.messageCount,
+      locked: version.locked,
+      draft: version.draft,
+      snapshotContent: version.snapshotContent,
+      legacyVersionId: version.id,
+    },
+  };
+}
+
+interface CheckpointActivityEventArgs {
+  checkpoint: CheckpointObject;
+  actor: string;
+}
+
+export function createCheckpointActivityEvent({
+  checkpoint,
+  actor,
+}: CheckpointActivityEventArgs): ActivityLifecycleEvent {
+  return {
+    id: `activity_${checkpoint.id}`,
+    eventType: 'save-version',
+    createdAt: checkpoint.createdAt,
+    actor,
+    sourceWorkspace: checkpoint.sourceWorkspace,
+    sourceTeamId: checkpoint.sourceTeamId,
+    sourceTeamLabel: checkpoint.sourceTeamLabel,
+    sourcePanelId: checkpoint.sourcePanelId,
+    sourcePanelLabel: checkpoint.sourcePanelLabel,
+    projectId: checkpoint.projectId,
+    relatedObjectId: checkpoint.id,
+    detail: `${checkpoint.title} created`,
+    metadata: {
+      versionNumber: checkpoint.payload.versionNumber,
+      locked: checkpoint.payload.locked,
+      messageCount: checkpoint.payload.messageCount,
+    },
   };
 }
 

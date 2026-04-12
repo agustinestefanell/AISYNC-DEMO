@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Modal } from '../components/Modal';
+import { MessageSelectionToggle } from '../components/MessageSelectionToggle';
 import { SaveBackupModal } from '../components/SaveBackupModal';
 import { Toast } from '../components/Toast';
 import { DividerRail } from '../components/DividerRail';
@@ -336,6 +337,19 @@ function buildSaveContent(messages: Message[]) {
     .join('\n\n');
 }
 
+function buildHandoffMinimumContext(messages: Message[]) {
+  if (messages.length === 0) {
+    return 'No selected context available.';
+  }
+
+  const excerpt = messages
+    .map((message) => `${message.senderLabel}: ${message.content.trim()}`)
+    .join(' ')
+    .slice(0, 280);
+
+  return `${messages.length} selected message(s). ${excerpt}${excerpt.length >= 280 ? '...' : ''}`;
+}
+
 function buildForwardedContent(messages: Message[], targetLabel: string) {
   const body = messages
     .map((message) => `${message.senderLabel}: ${message.content.trim()}`)
@@ -557,6 +571,7 @@ function ManagerPanel({
   forwardOptions,
   onForwardTargetChange,
   onForward,
+  onCreateHandoff,
   onToggleSelectMessage,
   onClearSelection,
   onOpenRefresh,
@@ -586,6 +601,7 @@ function ManagerPanel({
   forwardOptions: Array<{ id: string; label: string }>;
   onForwardTargetChange: (value: string) => void;
   onForward: () => void;
+  onCreateHandoff: () => void;
   onToggleSelectMessage: (messageId: string) => void;
   onClearSelection: () => void;
   onOpenRefresh: () => void;
@@ -767,16 +783,10 @@ function ManagerPanel({
                       className={`ui-chat-message-row group flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
                     >
                       {!isUser && (
-                        <button
-                          className={`mt-1 h-4 w-4 rounded border transition-colors ${
-                            isSelected
-                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
-                              : 'border-neutral-300 bg-white hover:border-neutral-500'
-                          }`}
+                        <MessageSelectionToggle
+                          selected={isSelected}
                           onClick={() => onToggleSelectMessage(message.id)}
-                        >
-                          <span className="sr-only">Select message</span>
-                        </button>
+                        />
                       )}
 
                       <button
@@ -796,7 +806,7 @@ function ManagerPanel({
                                 : isAgent
                                   ? 'ui-message-bubble border-[rgba(164,145,102,0.14)]'
                                   : 'ui-message-bubble'
-                          } ${isSelected ? 'ring-2 ring-[rgba(0,122,255,0.18)]' : ''}`}
+                          } ${isSelected ? 'ui-message-bubble-selected' : ''}`}
                         >
                           {isForwarded ? (
                             <>
@@ -814,16 +824,10 @@ function ManagerPanel({
                       </button>
 
                       {isUser && (
-                        <button
-                          className={`mt-1 h-4 w-4 rounded border transition-colors ${
-                            isSelected
-                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
-                              : 'border-neutral-300 bg-white hover:border-neutral-500'
-                          }`}
+                        <MessageSelectionToggle
+                          selected={isSelected}
                           onClick={() => onToggleSelectMessage(message.id)}
-                        >
-                          <span className="sr-only">Select message</span>
-                        </button>
+                        />
                       )}
                     </div>
                   );
@@ -891,10 +895,28 @@ function ManagerPanel({
               Review & Forward
             </button>
           </div>
+          <button
+            className="ui-button ui-button-primary ui-chat-action-button px-3 text-xs text-white disabled:cursor-not-allowed disabled:opacity-45"
+            onClick={onCreateHandoff}
+            title="Create a formal handoff package from the selected messages and destination above"
+            disabled={!hasSelection || forwardOptions.length === 0}
+          >
+            Create Handoff Package
+          </button>
         </div>
 
         {(showSaveSelection || hasSelection) && (
           <div className="mt-2 grid gap-2">
+            {hasSelection && (
+              <div className="ui-surface-subtle px-3 py-2 text-[11px] text-neutral-700">
+                Handoff package uses the current selection and the destination set above:
+                <span className="ml-1 font-medium text-neutral-900">
+                  {selectedMessageIds.length} message{selectedMessageIds.length === 1 ? '' : 's'} {'->'}{' '}
+                  {forwardOptions.find((option) => option.id === forwardTarget)?.label ?? 'No destination'}
+                </span>
+              </div>
+            )}
+
             {showSaveSelection && (
               <div className="ui-surface-subtle flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[11px] text-neutral-700">
                 <div>
@@ -943,11 +965,12 @@ function ManagerPanel({
           </button>
           <button
             className={`ui-button px-3 text-xs ${
-              showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
+              hasSelection || showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
             }`}
             onClick={onOpenSaveBackup}
+            title="Save the selected messages"
           >
-            Save / Backup
+            {hasSelection ? `Save Selection${selectedMessageIds.length > 1 ? ` (${selectedMessageIds.length})` : ''}` : 'Save Selection'}
           </button>
           <button
             className="ui-button ui-button-primary px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
@@ -1092,7 +1115,7 @@ function WorkerPanel({
 }
 
 export function PageG() {
-  const { state, dispatch, saveFile } = useApp();
+  const { state, dispatch, saveSelection, createHandoff } = useApp();
   const payload = state.auditAnswerPayload;
   const draft = state.crossVerificationDraft;
   const theme = useMemo(() => getTeamTheme(CROSS_VERIFICATION_TEAM_ID), []);
@@ -1120,9 +1143,9 @@ export function PageG() {
   const [forwardTarget, setForwardTarget] = useState('');
   const [chooseDestinationState, setChooseDestinationState] = useState<ChooseAnswerDestinationState | null>(null);
   const [fileTitle, setFileTitle] = useState('');
-  const [fileType, setFileType] = useState<FileType>('Conversation');
+  const [fileType] = useState<FileType>('Conversation');
   const [projectId, setProjectId] = useState(state.projects[0]?.id ?? '');
-  const [eventDate, setEventDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saveTimestamp, setSaveTimestamp] = useState(new Date().toISOString());
   const [hydratedContextSignature, setHydratedContextSignature] = useState('');
   const demoSeed = useMemo(buildDemoSeedScenario, []);
 
@@ -1379,7 +1402,7 @@ export function PageG() {
   useEffect(() => {
     if (showSaveModal) {
       setProjectId((current) => current || state.projects[0]?.id || '');
-      setEventDate(new Date().toISOString().slice(0, 10));
+      setSaveTimestamp(new Date().toISOString());
       setFileTitle(`CrossVerification_SubManager_${new Date().toISOString().slice(0, 10)}`);
     }
   }, [showSaveModal, state.projects]);
@@ -1672,9 +1695,116 @@ export function PageG() {
     ]);
     setSelectedManagerIds([]);
     setShowSaveSelection(false);
+    dispatch({
+      type: 'ADD_ACTIVITY_EVENT',
+      event: {
+        id: `activity_${Date.now()}`,
+        eventType: 'review-forward',
+        createdAt: new Date().toISOString(),
+        actor: state.userName,
+        sourceWorkspace: 'cross-verification',
+        sourceTeamId: CROSS_VERIFICATION_TEAM_ID,
+        sourceTeamLabel: 'Cross Verification',
+        sourcePanelId: 'cross-verification-sub-manager',
+        sourcePanelLabel: 'Cross Verification Sub-Manager',
+        projectId: state.projects[0]?.id ?? 'project_1',
+        relatedObjectId: null,
+        detail: `Reviewed and forwarded ${selectedManagerMessages.length} message(s) to ${getRoutingTargetOptionLabel(target)}`,
+        metadata: {
+          destinationLabel: getRoutingTargetOptionLabel(target),
+          selectedCount: selectedManagerMessages.length,
+        },
+      },
+    });
     setToast(
       `Reviewed & forwarded ${selectedManagerMessages.length} message(s) to ${getRoutingTargetOptionLabel(target)}.`,
     );
+  };
+
+  const handleCreateHandoff = () => {
+    if (selectedManagerMessages.length === 0) {
+      setToast('Select sub-manager messages first to create a handoff package.');
+      return;
+    }
+
+    const target =
+      managerForwardTargets.find((candidate) => candidate.id === forwardTarget) ?? null;
+    if (!target) {
+      setToast('No contextual handoff destination is available for this verification.');
+      return;
+    }
+
+    const project = state.projects.find((item) => item.id === projectId) ?? state.projects[0];
+    const destination =
+      target.kind === 'general-manager' && target.agentRole
+        ? {
+            workspace: 'main-workspace' as const,
+            teamId: 'global',
+            teamLabel: 'Main Workspace',
+            panelId: `main-${target.agentRole}`,
+            panelLabel: target.label,
+          }
+        : target.kind === 'worker' && target.sourceArea === 'main-workspace' && target.agentRole
+          ? {
+              workspace: 'main-workspace' as const,
+              teamId: 'global',
+              teamLabel: 'Main Workspace',
+              panelId: `main-${target.agentRole}`,
+              panelLabel: target.label,
+            }
+          : target.kind === 'worker' && target.sourceArea === 'team-workspace'
+            ? {
+                workspace: 'team-workspace' as const,
+                teamId: target.teamId ?? null,
+                teamLabel: target.teamLabel ?? target.label,
+                panelId: target.workerId ?? target.id,
+                panelLabel: target.label,
+              }
+            : target.kind === 'sub-manager' && target.sourceArea === 'team-workspace'
+              ? {
+                  workspace: 'team-workspace' as const,
+                  teamId: target.teamId ?? null,
+                  teamLabel: target.teamLabel ?? target.label,
+                  panelId: target.teamId ? `${target.teamId}-sub-manager` : target.id,
+                  panelLabel: target.label,
+                }
+              : {
+                  workspace: 'cross-verification' as const,
+                  teamId: CROSS_VERIFICATION_TEAM_ID,
+                  teamLabel: 'Cross Verification',
+                  panelId: 'cross-verification-sub-manager',
+                  panelLabel: 'Cross Verification Sub-Manager',
+                };
+
+    createHandoff({
+      title: `Handoff | Cross Verification Sub-Manager -> ${getRoutingTargetOptionLabel(target)}`,
+      projectId: project?.id ?? projectId,
+      sourceWorkspace: 'cross-verification',
+      sourceTeamId: CROSS_VERIFICATION_TEAM_ID,
+      sourceTeamLabel: 'Cross Verification',
+      sourcePanelId: 'cross-verification-sub-manager',
+      sourcePanelLabel: 'Cross Verification Sub-Manager',
+      destinationWorkspace: destination.workspace,
+      destinationTeamId: destination.teamId,
+      destinationTeamLabel: destination.teamLabel,
+      destinationPanelId: destination.panelId,
+      destinationPanelLabel: destination.panelLabel,
+      transferredMessages: selectedManagerMessages.map((message) => ({
+        id: message.id,
+        senderLabel: message.senderLabel,
+        timestamp: message.timestamp,
+        content: message.content,
+      })),
+      transferredContent: buildSaveContent(selectedManagerMessages),
+      objective: `Transfer verified context from Cross Verification to ${getRoutingTargetOptionLabel(target)}.`,
+      minimumContext: buildHandoffMinimumContext(selectedManagerMessages),
+      riskNotes: managerResult
+        ? ['Cross Verification synthesis should be reviewed before operational closure.']
+        : [],
+    });
+    setSelectedManagerIds([]);
+    setShowSaveSelection(false);
+    setToast(`Handoff package created for ${getRoutingTargetOptionLabel(target)}.`);
   };
 
   const handleSave = () => {
@@ -1683,7 +1813,7 @@ export function PageG() {
       return;
     }
 
-    saveFile({
+    saveSelection({
       agent: 'manager',
       content: buildSaveContent(selectedManagerMessages),
       title:
@@ -1691,8 +1821,16 @@ export function PageG() {
         `CrossVerification_SubManager_${new Date().toISOString().slice(0, 10)}`,
       type: fileType,
       projectId,
-      date: eventDate,
+      selectedMessages: selectedManagerMessages.map((message) => ({
+        id: message.id,
+        senderLabel: message.senderLabel,
+        timestamp: message.timestamp,
+        content: message.content,
+      })),
+      date: saveTimestamp.slice(0, 10),
       sourceLabel: 'Cross Verification | Sub-Manager',
+      sourcePanelId: 'cross-verification-sub-manager',
+      sourcePanelLabel: 'Cross Verification Sub-Manager',
     });
     setSelectedManagerIds([]);
     setShowSaveModal(false);
@@ -1708,6 +1846,7 @@ export function PageG() {
       return;
     }
 
+    setSaveTimestamp(new Date().toISOString());
     setShowSaveModal(true);
   };
 
@@ -1815,6 +1954,7 @@ export function PageG() {
           }))}
           onForwardTargetChange={setForwardTarget}
           onForward={handleForward}
+          onCreateHandoff={handleCreateHandoff}
           onToggleSelectMessage={handleToggleManagerSelection}
           onClearSelection={handleClearManagerSelection}
           onOpenRefresh={() => setShowRefreshConfirm(true)}
@@ -1936,13 +2076,9 @@ export function PageG() {
           selectedMessages={selectedManagerMessages}
           fileTitle={fileTitle}
           onFileTitleChange={setFileTitle}
-          fileType={fileType}
-          onFileTypeChange={setFileType}
-          projectId={projectId}
-          onProjectIdChange={setProjectId}
-          eventDate={eventDate}
-          onEventDateChange={setEventDate}
-          projects={state.projects}
+          projectLabel={state.projects.find((project) => project.id === projectId)?.name ?? projectId}
+          sourceLabel="Cross Verification | Sub-Manager"
+          saveTimestamp={saveTimestamp}
           onSave={handleSave}
         />
 

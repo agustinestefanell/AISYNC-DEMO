@@ -7,6 +7,7 @@ import type { AgentRole, AIProvider, FileType, ReviewForwardTargetOption, Worksp
 import { formatWorkspaceVersionTimestamp } from '../versioning';
 import { ContextUploadModal, type ContextUploadItem } from './ContextUploadModal';
 import { LockIconButton } from './LockIconButton';
+import { MessageSelectionToggle } from './MessageSelectionToggle';
 import { Modal } from './Modal';
 import { SaveBackupModal } from './SaveBackupModal';
 import { Toast } from './Toast';
@@ -41,6 +42,19 @@ function buildForwardedContent(messages: TeamMessage[], sourceLabel: string) {
 
 function buildSaveContent(messages: TeamMessage[]) {
   return messages.map((message) => `${message.senderLabel}: ${message.content}`).join('\n\n');
+}
+
+function buildHandoffMinimumContext(messages: TeamMessage[]) {
+  if (messages.length === 0) {
+    return 'No selected context available.';
+  }
+
+  const excerpt = messages
+    .map((message) => `${message.senderLabel}: ${message.content.trim()}`)
+    .join(' ')
+    .slice(0, 280);
+
+  return `${messages.length} selected message(s). ${excerpt}${excerpt.length >= 280 ? '...' : ''}`;
 }
 
 export function SecondaryWorkspacePanel({
@@ -101,7 +115,7 @@ export function SecondaryWorkspacePanel({
   onClearChat: () => void;
   style?: CSSProperties;
 }) {
-  const { state, saveFile, dispatch } = useApp();
+  const { state, saveSelection, createHandoff, dispatch } = useApp();
   const viewportRef = useRef<HTMLDivElement>(null);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [showSaveSelection, setShowSaveSelection] = useState(false);
@@ -111,14 +125,15 @@ export function SecondaryWorkspacePanel({
   const [toast, setToast] = useState('');
   const [forwardTarget, setForwardTarget] = useState(forwardOptions[0]?.id ?? '');
   const [fileTitle, setFileTitle] = useState('');
-  const [fileType, setFileType] = useState<FileType>('Conversation');
+  const [fileType] = useState<FileType>('Conversation');
   const [projectId, setProjectId] = useState(state.projects[0]?.id ?? '');
-  const [eventDate, setEventDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saveTimestamp, setSaveTimestamp] = useState(new Date().toISOString());
 
   const selectedMessages = useMemo(
     () => messages.filter((message) => selectedIds.includes(message.id)),
     [messages, selectedIds],
   );
+  const hasSelection = selectedMessages.length > 0;
   const latestVersion = workspaceVersions[workspaceVersions.length - 1] ?? null;
   const versionSummary = latestVersion
     ? `Version ${latestVersion.versionNumber} - Saved ${formatWorkspaceVersionTimestamp(
@@ -143,7 +158,7 @@ export function SecondaryWorkspacePanel({
   useEffect(() => {
     if (showSaveModal) {
       setProjectId((current) => current || state.projects[0]?.id || '');
-      setEventDate(new Date().toISOString().slice(0, 10));
+      setSaveTimestamp(new Date().toISOString());
       setFileTitle(
         `${teamLabel.replace(/[^a-zA-Z0-9]+/g, '_')}_${workerLabel}_${new Date().toISOString().slice(0, 10)}`,
       );
@@ -158,7 +173,7 @@ export function SecondaryWorkspacePanel({
 
   const sendMessage = () => {
     if (documentLocked) {
-      setToast('Document lock is active. Unlock this workspace lane to send new content.');
+      setToast('Panel lock is active. Unlock panel to send new content.');
       return;
     }
 
@@ -188,7 +203,7 @@ export function SecondaryWorkspacePanel({
 
   const handleForward = () => {
     if (documentLocked) {
-      setToast('Document lock is active. Unlock this workspace lane to review and forward.');
+      setToast('Panel lock is active. Unlock panel to review and forward.');
       return;
     }
 
@@ -212,7 +227,99 @@ export function SecondaryWorkspacePanel({
       variant: 'forwarded',
     });
     onClearSelection();
+    dispatch({
+      type: 'ADD_ACTIVITY_EVENT',
+      event: {
+        id: `activity_${Date.now()}`,
+        eventType: 'review-forward',
+        createdAt: new Date().toISOString(),
+        actor: state.userName,
+        sourceWorkspace: 'team-workspace',
+        sourceTeamId: teamId,
+        sourceTeamLabel: teamLabel,
+        sourcePanelId: workerId,
+        sourcePanelLabel: workerLabel,
+        projectId: state.projects[0]?.id ?? 'project_1',
+        relatedObjectId: null,
+        detail: `Reviewed and forwarded ${selectedMessages.length} message(s) to ${target.label}`,
+        metadata: {
+          destinationLabel: target.label,
+          selectedCount: selectedMessages.length,
+        },
+      },
+    });
     setToast(`Reviewed & forwarded ${selectedMessages.length} message(s).`);
+  };
+
+  const handleCreateHandoff = () => {
+    if (documentLocked) {
+      setToast('Panel lock is active. Unlock panel to create a handoff package.');
+      return;
+    }
+
+    if (selectedMessages.length === 0) {
+      setToast('Select messages first to create a handoff package.');
+      return;
+    }
+
+    const target = forwardOptions.find((option) => option.id === forwardTarget);
+    if (!target) {
+      setToast('Choose a valid handoff destination first.');
+      return;
+    }
+
+    const project = state.projects.find((item) => item.id === projectId) ?? state.projects[0];
+    const destination =
+      target.kind === 'team-sub-manager'
+        ? {
+            workspace: 'team-workspace' as const,
+            teamId: target.teamId ?? null,
+            teamLabel: target.label,
+            panelId: target.nodeId ?? `${target.teamId ?? 'team'}-sub-manager`,
+            panelLabel: target.label,
+          }
+        : target.kind === 'team-worker'
+          ? {
+              workspace: 'team-workspace' as const,
+              teamId: target.teamId ?? null,
+              teamLabel,
+              panelId: target.workerId ?? target.id,
+              panelLabel: target.label,
+            }
+          : {
+              workspace: 'main-workspace' as const,
+              teamId: 'global',
+              teamLabel: 'Main Workspace',
+              panelId: `main-${target.agentRole ?? 'manager'}`,
+              panelLabel: target.label,
+            };
+
+    createHandoff({
+      title: `Handoff | ${workerLabel} -> ${target.label}`,
+      projectId: project?.id ?? projectId,
+      sourceWorkspace: 'team-workspace',
+      sourceTeamId: teamId,
+      sourceTeamLabel: teamLabel,
+      sourcePanelId: workerId,
+      sourcePanelLabel: workerLabel,
+      destinationWorkspace: destination.workspace,
+      destinationTeamId: destination.teamId,
+      destinationTeamLabel: destination.teamLabel,
+      destinationPanelId: destination.panelId,
+      destinationPanelLabel: destination.panelLabel,
+      transferredMessages: selectedMessages.map((message) => ({
+        id: message.id,
+        senderLabel: message.senderLabel,
+        timestamp: message.timestamp,
+        content: message.content,
+      })),
+      transferredContent: buildSaveContent(selectedMessages),
+      objective: `Transfer reviewed team work from ${workerLabel} to ${target.label}.`,
+      minimumContext: buildHandoffMinimumContext(selectedMessages),
+      riskNotes: documentLocked ? ['Source panel was locked at handoff time.'] : [],
+    });
+    onClearSelection();
+    setToast(`Handoff package created for ${target.label}.`);
   };
 
   const openSaveBackup = () => {
@@ -223,6 +330,7 @@ export function SecondaryWorkspacePanel({
       return;
     }
 
+    setSaveTimestamp(new Date().toISOString());
     setShowSaveModal(true);
   };
 
@@ -232,14 +340,22 @@ export function SecondaryWorkspacePanel({
       return;
     }
 
-    saveFile({
+    saveSelection({
       agent: saveAgent,
       sourceLabel: `${teamLabel} | ${workerLabel}`,
       content: buildSaveContent(selectedMessages),
       title: fileTitle.trim() || `${teamLabel}_${workerLabel}_${new Date().toISOString().slice(0, 10)}`,
       type: fileType,
       projectId,
-      date: eventDate,
+      selectedMessages: selectedMessages.map((message) => ({
+        id: message.id,
+        senderLabel: message.senderLabel,
+        timestamp: message.timestamp,
+        content: message.content,
+      })),
+      date: saveTimestamp.slice(0, 10),
+      sourcePanelId: workerId,
+      sourcePanelLabel: workerLabel,
     });
     onClearSelection();
     setShowSaveSelection(false);
@@ -249,7 +365,7 @@ export function SecondaryWorkspacePanel({
 
   const handleAuditAnswer = () => {
     if (documentLocked) {
-      setToast('Document lock is active. Unlock this workspace lane to audit the selection.');
+      setToast('Panel lock is active. Unlock panel to audit the selection.');
       return;
     }
 
@@ -325,10 +441,10 @@ export function SecondaryWorkspacePanel({
       <div className="shrink-0 px-3 pb-1 pt-1">
         <div className="ui-chat-tools-row">
           <button className="ui-chat-prompt shrink-0" onClick={openPromptsLibrary}>
-            + Prompts
+            Prompt Library
           </button>
           <button className="ui-chat-prompt shrink-0" onClick={() => setShowContextModal(true)}>
-            Upload Context
+            Add Context File
           </button>
         </div>
       </div>
@@ -350,16 +466,7 @@ export function SecondaryWorkspacePanel({
                 className={`ui-chat-message-row group flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <button
-                    className={`mt-1 h-4 w-4 rounded border transition-colors ${
-                      isSelected
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
-                        : 'border-neutral-300 bg-white hover:border-neutral-500'
-                    }`}
-                    onClick={() => onToggleSelect(message.id)}
-                  >
-                    <span className="sr-only">Select message</span>
-                  </button>
+                  <MessageSelectionToggle selected={isSelected} onClick={() => onToggleSelect(message.id)} />
                 )}
 
                 <button
@@ -377,7 +484,7 @@ export function SecondaryWorkspacePanel({
                         : isUser
                           ? 'ui-message-bubble ui-message-bubble-user'
                           : 'ui-message-bubble'
-                    } ${isSelected ? 'ring-2 ring-[rgba(0,122,255,0.18)]' : ''}`}
+                    } ${isSelected ? 'ui-message-bubble-selected' : ''}`}
                   >
                     {isForwarded ? (
                       <>
@@ -395,16 +502,7 @@ export function SecondaryWorkspacePanel({
                 </button>
 
                 {isUser && (
-                  <button
-                    className={`mt-1 h-4 w-4 rounded border transition-colors ${
-                      isSelected
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent)]'
-                        : 'border-neutral-300 bg-white hover:border-neutral-500'
-                    }`}
-                    onClick={() => onToggleSelect(message.id)}
-                  >
-                    <span className="sr-only">Select message</span>
-                  </button>
+                  <MessageSelectionToggle selected={isSelected} onClick={() => onToggleSelect(message.id)} />
                 )}
               </div>
             );
@@ -421,7 +519,7 @@ export function SecondaryWorkspacePanel({
             className="ui-chat-composer-input"
             placeholder={
               documentLocked
-                ? 'Document locked. Unlock to message this lane.'
+                ? 'Panel locked. Unlock panel to send new content.'
                 : `Message ${getProviderDisplayName(provider)}...`
             }
             value={draft}
@@ -475,10 +573,28 @@ export function SecondaryWorkspacePanel({
               Review & Forward
             </button>
           </div>
+          <button
+            className="ui-button ui-button-primary ui-chat-action-button px-3 text-xs text-white disabled:cursor-not-allowed disabled:opacity-45"
+            onClick={handleCreateHandoff}
+            title="Create a formal handoff package from the selected messages and destination above"
+            disabled={documentLocked || selectedMessages.length === 0 || forwardOptions.length === 0}
+          >
+            Create Handoff Package
+          </button>
         </div>
 
-        {(showSaveSelection || selectedMessages.length > 0 || contextItems.length > 0) && (
+        {(showSaveSelection || hasSelection || contextItems.length > 0) && (
           <div className="mt-2 grid gap-2">
+            {hasSelection && (
+              <div className="ui-surface-subtle px-3 py-2 text-[11px] text-neutral-700">
+                Handoff package uses the current selection and the destination set above:
+                <span className="ml-1 font-medium text-neutral-900">
+                  {selectedMessages.length} message{selectedMessages.length === 1 ? '' : 's'} {'->'}{' '}
+                  {forwardOptions.find((option) => option.id === forwardTarget)?.label ?? 'No destination'}
+                </span>
+              </div>
+            )}
+
             {showSaveSelection && (
               <div className="ui-surface-subtle flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[11px] text-neutral-700">
                 <div>
@@ -521,7 +637,7 @@ export function SecondaryWorkspacePanel({
               </div>
             )}
 
-            {selectedMessages.length > 0 && !showSaveSelection && (
+            {hasSelection && !showSaveSelection && (
               <button
                 className="mt-1 text-[11px] text-neutral-500 underline-offset-2 hover:underline"
                 onClick={onClearSelection}
@@ -548,16 +664,18 @@ export function SecondaryWorkspacePanel({
             className="ui-button px-3 text-xs text-neutral-700 disabled:cursor-not-allowed disabled:opacity-45"
             onClick={handleSaveVersion}
             disabled={messages.length === 0}
+            title="Create an operational checkpoint of the current workspace state"
           >
             Save Version
           </button>
           <button
             className={`ui-button px-3 text-xs ${
-              showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
+              hasSelection || showSaveSelection ? 'ui-button-primary text-white' : 'text-neutral-700'
             }`}
             onClick={openSaveBackup}
+            title="Save the selected messages"
           >
-            Save / Backup
+            {hasSelection ? `Save Selection${selectedMessages.length > 1 ? ` (${selectedMessages.length})` : ''}` : 'Save Selection'}
           </button>
           <button
             className="ui-button ui-button-primary px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
@@ -611,13 +729,9 @@ export function SecondaryWorkspacePanel({
         selectedMessages={selectedMessages}
         fileTitle={fileTitle}
         onFileTitleChange={setFileTitle}
-        fileType={fileType}
-        onFileTypeChange={(value) => setFileType(value as FileType)}
-        projectId={projectId}
-        onProjectIdChange={setProjectId}
-        eventDate={eventDate}
-        onEventDateChange={setEventDate}
-        projects={state.projects}
+        projectLabel={state.projects.find((project) => project.id === projectId)?.name ?? projectId}
+        sourceLabel={`${teamLabel} | ${workerLabel}`}
+        saveTimestamp={saveTimestamp}
         onSave={handleSave}
       />
 
